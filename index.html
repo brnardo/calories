@@ -24,6 +24,7 @@
     --protein: #4c9dff;
     --carbs: #4cd07d;
     --fat: #ffd54c;
+    --fiber: #c58bff;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
@@ -137,6 +138,7 @@
   li.entry .name .em .ip { color: var(--protein); }
   li.entry .name .em .ic { color: var(--carbs); }
   li.entry .name .em .if { color: var(--fat); }
+  li.entry .name .em .ib { color: var(--fiber); }
   li.entry .kcal { font-weight: 600; font-variant-numeric: tabular-nums; }
   li.entry .del {
     background: none; color: var(--muted); font-size: 18px;
@@ -170,6 +172,14 @@
   .card label { display: block; color: var(--muted); font-size: 13px; margin: 12px 0 6px; }
   .card input, .card select { background: var(--card2); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .seg { display: flex; gap: 5px; }
+  .seg button {
+    flex: 1; padding: 11px 0; border-radius: 10px;
+    background: var(--card2); color: var(--muted);
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    font-variant-numeric: tabular-nums;
+  }
+  .seg button.active { background: var(--accent); color: #14100b; }
   .btnRow { display: flex; gap: 8px; margin-top: 14px; }
   .btn {
     flex: 1; padding: 13px; border-radius: 12px; font-weight: 600;
@@ -177,9 +187,8 @@
   }
   .btn.primary { background: var(--accent); color: #14100b; }
   .btn.danger { color: var(--danger); }
-  #backupStatus, #pfApplied { color: var(--muted); font-size: 13px; margin-top: 12px; }
+  #backupStatus { color: var(--muted); font-size: 13px; margin-top: 12px; }
   #backupStatus.err { color: var(--danger); }
-  #pfApplied { color: var(--ok); }
 
   .resultCard {
     background: var(--card2); border-radius: 12px;
@@ -191,6 +200,7 @@
   .resultCard .split .p { color: var(--protein); }
   .resultCard .split .c { color: var(--carbs); }
   .resultCard .split .f { color: var(--fat); }
+  .resultCard .split .b { color: var(--fiber); }
   .resultCard .meta { color: var(--muted); font-size: 12px; margin-top: 8px; }
 
   /* --- entry editor sheet --- */
@@ -260,6 +270,10 @@
       <div class="top"><span>Fat</span><span><b id="mFv">0</b><span id="mFg">/65g</span></span></div>
       <div class="mBar"><div id="mFb" style="background:var(--fat)"></div></div>
     </div>
+    <div class="macro">
+      <div class="top"><span>Fiber</span><span><b id="mBv">0</b><span id="mBg">/30g</span></span></div>
+      <div class="mBar"><div id="mBb" style="background:var(--fiber)"></div></div>
+    </div>
   </div>
   <div id="syncDot"><span id="syncLabel"></span></div>
 </header>
@@ -280,6 +294,7 @@
       <input id="foodP" placeholder="Protein g" type="number" inputmode="numeric" min="0">
       <input id="foodC" placeholder="Carbs g" type="number" inputmode="numeric" min="0">
       <input id="foodF" placeholder="Fat g" type="number" inputmode="numeric" min="0">
+      <input id="foodFb" placeholder="Fiber g" type="number" inputmode="numeric" min="0">
     </div>
   </form>
   <div class="chips" id="chips"></div>
@@ -294,10 +309,10 @@
 
 <main id="viewProfile" class="hidden">
   <div class="card">
-    <h3>Goal calculator</h3>
+    <h3>Profile</h3>
     <p class="hint">
-      Estimates your daily burn (Mifflin-St Jeor × activity), applies your goal pace,
-      then splits macros: protein from body weight, fat at 25% of calories, carbs fill the rest.
+      Your daily targets are calculated from this profile (Mifflin-St Jeor × activity, goal pace applied,
+      protein from body weight, fat at 25% of calories, carbs fill the rest, fiber at 14g / 1000 kcal).
     </p>
     <div class="grid2">
       <div>
@@ -317,14 +332,17 @@
         <input id="pfW" type="number" inputmode="decimal" min="30" max="300" step="0.1" placeholder="78">
       </div>
     </div>
-    <label for="pfAct">Activity level</label>
-    <select id="pfAct">
-      <option value="1.2">Sedentary — no exercise</option>
-      <option value="1.375">Light — 1–2 workouts/week</option>
-      <option value="1.55">Moderate — 3–4 workouts/week</option>
-      <option value="1.725">Very active — 5–6 workouts/week</option>
-      <option value="1.9">Athlete — daily training or physical job</option>
-    </select>
+    <label>Exercise days / week</label>
+    <div class="seg" id="pfDays">
+      <button type="button" data-days="0">0</button>
+      <button type="button" data-days="1">1</button>
+      <button type="button" data-days="2">2</button>
+      <button type="button" data-days="3">3</button>
+      <button type="button" data-days="4">4</button>
+      <button type="button" data-days="5">5</button>
+      <button type="button" data-days="6">6</button>
+      <button type="button" data-days="7">7</button>
+    </div>
     <label for="pfAdj">Goal</label>
     <select id="pfAdj">
       <option value="-500">Lose ~0.5 kg/week (−500 kcal)</option>
@@ -344,22 +362,19 @@
     <div class="resultCard" id="pfResult">
       <div class="meta">Fill in age, height and weight to calculate.</div>
     </div>
-    <div class="btnRow">
-      <button class="btn primary" id="pfApply">Set as my goals</button>
-    </div>
-    <div id="pfApplied"></div>
   </div>
 </main>
 
 <main id="viewSettings" class="hidden">
   <div class="card">
-    <h3>Daily goals</h3>
-    <p class="hint">Set manually here, or use the calculator in the Profile tab.</p>
+    <h3>Daily goals (fallback)</h3>
+    <p class="hint">Only used while the Profile tab is incomplete — once your profile is filled in, targets come from the profile calculations.</p>
     <div class="grid2">
       <div><label for="goalInput">Calories</label><input id="goalInput" type="number" inputmode="numeric" min="1"></div>
       <div><label for="goalPInput">Protein (g)</label><input id="goalPInput" type="number" inputmode="numeric" min="0"></div>
       <div><label for="goalCInput">Carbs (g)</label><input id="goalCInput" type="number" inputmode="numeric" min="0"></div>
       <div><label for="goalFInput">Fat (g)</label><input id="goalFInput" type="number" inputmode="numeric" min="0"></div>
+      <div><label for="goalFbInput">Fiber (g)</label><input id="goalFbInput" type="number" inputmode="numeric" min="0"></div>
     </div>
   </div>
 
@@ -412,65 +427,73 @@ const KEY = 'calories-v1';
 const GIST_FILE = 'calories-backup.json';
 const $ = s => document.querySelector(s);
 
+/* Profile baked into the repo: fresh installs start from these values.
+   `days` = exercise days per week (0-7). */
+const DEFAULT_PROFILE = { sex: 'm', age: '', h: '', w: '', days: 4, adj: '0', prot: 'auto' };
+
+/* TDEE multiplier per exercise-days/week (0-7), interpolated from the
+   standard sedentary 1.2 -> athlete 1.9 activity factors. */
+const ACT_FACTORS = [1.2, 1.3, 1.375, 1.465, 1.55, 1.64, 1.725, 1.8];
+
 /* Ingredient database: values per `per` unit (g or ml).
    Branded items from manufacturer labels; generics from USDA FoodData Central. */
 const INGREDIENTS = [
   // branded
-  { name: 'Alpro soya-coconut yogurt',  per: 100, unit: 'g',  kcal: 55,  p: 3.9,  c: 2.3,  f: 3.0 },
-  { name: 'Alpro oat drink no sugars',  per: 100, unit: 'ml', kcal: 40,  p: 0.2,  c: 5.8,  f: 1.5 },
-  { name: 'Bulk vegan rice protein',    per: 100, unit: 'g',  kcal: 374, p: 80.0, c: 3.8,  f: 3.5 },
-  { name: 'Black coffee',               per: 100, unit: 'ml', kcal: 2,   p: 0,    c: 0,    f: 0 },
+  { name: 'Alpro soya-coconut yogurt',  per: 100, unit: 'g',  kcal: 55,  p: 3.9,  c: 2.3,  f: 3.0,  fb: 1.0 },
+  { name: 'Alpro oat drink no sugars',  per: 100, unit: 'ml', kcal: 40,  p: 0.2,  c: 5.8,  f: 1.5,  fb: 0.8 },
+  { name: 'Bulk vegan rice protein',    per: 100, unit: 'g',  kcal: 374, p: 80.0, c: 3.8,  f: 3.5,  fb: 2.0 },
+  { name: 'Black coffee',               per: 100, unit: 'ml', kcal: 2,   p: 0,    c: 0,    f: 0,    fb: 0 },
   // staples
-  { name: 'Almonds',                    per: 100, unit: 'g',  kcal: 579, p: 21.2, c: 21.6, f: 49.9 },
-  { name: 'Rolled oats (dry)',          per: 100, unit: 'g',  kcal: 389, p: 16.9, c: 66.3, f: 6.9 },
-  { name: 'Banana',                     per: 100, unit: 'g',  kcal: 89,  p: 1.1,  c: 22.8, f: 0.3 },
-  { name: 'Chicken breast (raw)',       per: 100, unit: 'g',  kcal: 106, p: 23.0, c: 0,    f: 2.0 },
-  { name: 'Whole egg',                  per: 100, unit: 'g',  kcal: 143, p: 12.6, c: 0.7,  f: 9.5 },
-  { name: 'White rice (cooked)',        per: 100, unit: 'g',  kcal: 130, p: 2.7,  c: 28.2, f: 0.3 },
-  { name: 'Brown rice (cooked)',        per: 100, unit: 'g',  kcal: 112, p: 2.6,  c: 24.3, f: 0.9 },
-  { name: 'Pasta (cooked)',             per: 100, unit: 'g',  kcal: 158, p: 5.8,  c: 31.0, f: 0.9 },
-  { name: 'Potato (boiled)',            per: 100, unit: 'g',  kcal: 86,  p: 1.7,  c: 17.5, f: 0.1 },
-  { name: 'Sweet potato (baked)',       per: 100, unit: 'g',  kcal: 90,  p: 2.0,  c: 20.7, f: 0.2 },
-  { name: 'Salmon (raw)',               per: 100, unit: 'g',  kcal: 208, p: 20.4, c: 0,    f: 13.6 },
-  { name: 'Tuna in water (drained)',    per: 100, unit: 'g',  kcal: 116, p: 25.5, c: 0,    f: 0.6 },
-  { name: 'Beef mince 5% (raw)',        per: 100, unit: 'g',  kcal: 137, p: 20.1, c: 0,    f: 6.6 },
-  { name: 'Olive oil',                  per: 100, unit: 'g',  kcal: 884, p: 0,    c: 0,    f: 100 },
-  { name: 'Butter',                     per: 100, unit: 'g',  kcal: 717, p: 0.9,  c: 0.1,  f: 81.1 },
-  { name: 'Whole milk',                 per: 100, unit: 'ml', kcal: 61,  p: 3.2,  c: 4.8,  f: 3.3 },
-  { name: 'Semi-skimmed milk',          per: 100, unit: 'ml', kcal: 49,  p: 3.4,  c: 5.0,  f: 1.7 },
-  { name: 'Greek yogurt (full fat)',    per: 100, unit: 'g',  kcal: 100, p: 9.1,  c: 4.0,  f: 5.0 },
-  { name: 'Skyr (plain)',               per: 100, unit: 'g',  kcal: 63,  p: 11.0, c: 4.0,  f: 0.2 },
-  { name: 'Lentils (cooked)',           per: 100, unit: 'g',  kcal: 116, p: 9.0,  c: 20.3, f: 0.4 },
-  { name: 'Chickpeas (cooked)',         per: 100, unit: 'g',  kcal: 164, p: 8.9,  c: 27.4, f: 2.6 },
-  { name: 'Firm tofu',                  per: 100, unit: 'g',  kcal: 144, p: 17.3, c: 2.8,  f: 8.7 },
-  { name: 'Tempeh',                     per: 100, unit: 'g',  kcal: 192, p: 20.3, c: 7.8,  f: 11.0 },
-  { name: 'Whey protein',               per: 100, unit: 'g',  kcal: 390, p: 72.0, c: 8.0,  f: 6.0 },
-  { name: 'Peanut butter',              per: 100, unit: 'g',  kcal: 597, p: 22.0, c: 22.0, f: 51.0 },
-  { name: 'Whole wheat bread',          per: 100, unit: 'g',  kcal: 254, p: 12.0, c: 43.0, f: 2.4 },
-  { name: 'Avocado',                    per: 100, unit: 'g',  kcal: 160, p: 2.0,  c: 8.5,  f: 14.7 },
-  { name: 'Broccoli',                   per: 100, unit: 'g',  kcal: 34,  p: 2.8,  c: 6.6,  f: 0.4 },
-  { name: 'Spinach',                    per: 100, unit: 'g',  kcal: 23,  p: 2.9,  c: 3.6,  f: 0.4 },
-  { name: 'Tomato',                     per: 100, unit: 'g',  kcal: 18,  p: 0.9,  c: 3.9,  f: 0.2 },
-  { name: 'Apple',                      per: 100, unit: 'g',  kcal: 52,  p: 0.3,  c: 13.8, f: 0.2 },
-  { name: 'Orange',                     per: 100, unit: 'g',  kcal: 47,  p: 0.9,  c: 11.8, f: 0.1 },
-  { name: 'Blueberries',                per: 100, unit: 'g',  kcal: 57,  p: 0.7,  c: 14.5, f: 0.3 },
-  { name: 'Strawberries',               per: 100, unit: 'g',  kcal: 33,  p: 0.6,  c: 8.0,  f: 0.2 },
-  { name: 'Dark chocolate 70%',         per: 100, unit: 'g',  kcal: 598, p: 7.8,  c: 45.9, f: 42.6 },
-  { name: 'Honey',                      per: 100, unit: 'g',  kcal: 304, p: 0.3,  c: 82.4, f: 0 },
-  { name: 'Quinoa (cooked)',            per: 100, unit: 'g',  kcal: 120, p: 4.4,  c: 21.3, f: 1.9 },
-  { name: 'Oat milk',                   per: 100, unit: 'ml', kcal: 47,  p: 1.5,  c: 4.5,  f: 1.5 },
-  { name: 'Walnuts',                    per: 100, unit: 'g',  kcal: 654, p: 15.4, c: 14.0, f: 66.3 },
-  { name: 'Cheddar',                    per: 100, unit: 'g',  kcal: 403, p: 24.9, c: 1.3,  f: 33.1 },
-  { name: 'Mozzarella',                 per: 100, unit: 'g',  kcal: 300, p: 22.2, c: 1.1,  f: 24.4 },
-  { name: 'Feta',                       per: 100, unit: 'g',  kcal: 264, p: 14.2, c: 4.1,  f: 22.7 },
-  { name: 'Hummus',                     per: 100, unit: 'g',  kcal: 166, p: 7.9,  c: 14.3, f: 9.6 },
-  { name: 'Dates (medjool)',            per: 100, unit: 'g',  kcal: 277, p: 2.0,  c: 75.0, f: 0.2 },
-  { name: 'Raisins',                    per: 100, unit: 'g',  kcal: 299, p: 3.1,  c: 79.0, f: 0.5 },
-  { name: 'Rye bread',                  per: 100, unit: 'g',  kcal: 259, p: 8.5,  c: 49.7, f: 3.5 },
-  { name: 'Corn tortilla',              per: 100, unit: 'g',  kcal: 218, p: 4.2,  c: 42.6, f: 1.5 },
-  { name: 'Cucumber',                   per: 100, unit: 'g',  kcal: 14,  p: 0.6,  c: 2.2,  f: 0.2 },
-  { name: 'Carrot',                     per: 100, unit: 'g',  kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2 },
-  { name: 'Bell pepper',                per: 100, unit: 'g',  kcal: 26,  p: 1.0,  c: 6.0,  f: 0.3 }
+  { name: 'Almonds',                    per: 100, unit: 'g',  kcal: 579, p: 21.2, c: 21.6, f: 49.9, fb: 12.5 },
+  { name: 'Rolled oats (dry)',          per: 100, unit: 'g',  kcal: 389, p: 16.9, c: 66.3, f: 6.9,  fb: 10.6 },
+  { name: 'Banana',                     per: 100, unit: 'g',  kcal: 89,  p: 1.1,  c: 22.8, f: 0.3,  fb: 2.6 },
+  { name: 'Chicken breast (raw)',       per: 100, unit: 'g',  kcal: 106, p: 23.0, c: 0,    f: 2.0,  fb: 0 },
+  { name: 'Whole egg',                  per: 100, unit: 'g',  kcal: 143, p: 12.6, c: 0.7,  f: 9.5,  fb: 0 },
+  { name: 'White rice (cooked)',        per: 100, unit: 'g',  kcal: 130, p: 2.7,  c: 28.2, f: 0.3,  fb: 0.4 },
+  { name: 'Brown rice (cooked)',        per: 100, unit: 'g',  kcal: 112, p: 2.6,  c: 24.3, f: 0.9,  fb: 1.8 },
+  { name: 'Pasta (cooked)',             per: 100, unit: 'g',  kcal: 158, p: 5.8,  c: 31.0, f: 0.9,  fb: 1.8 },
+  { name: 'Potato (boiled)',            per: 100, unit: 'g',  kcal: 86,  p: 1.7,  c: 17.5, f: 0.1,  fb: 1.8 },
+  { name: 'Sweet potato (baked)',       per: 100, unit: 'g',  kcal: 90,  p: 2.0,  c: 20.7, f: 0.2,  fb: 3.3 },
+  { name: 'Salmon (raw)',               per: 100, unit: 'g',  kcal: 208, p: 20.4, c: 0,    f: 13.6, fb: 0 },
+  { name: 'Tuna in water (drained)',    per: 100, unit: 'g',  kcal: 116, p: 25.5, c: 0,    f: 0.6,  fb: 0 },
+  { name: 'Beef mince 5% (raw)',        per: 100, unit: 'g',  kcal: 137, p: 20.1, c: 0,    f: 6.6,  fb: 0 },
+  { name: 'Olive oil',                  per: 100, unit: 'g',  kcal: 884, p: 0,    c: 0,    f: 100,  fb: 0 },
+  { name: 'Butter',                     per: 100, unit: 'g',  kcal: 717, p: 0.9,  c: 0.1,  f: 81.1, fb: 0 },
+  { name: 'Whole milk',                 per: 100, unit: 'ml', kcal: 61,  p: 3.2,  c: 4.8,  f: 3.3,  fb: 0 },
+  { name: 'Semi-skimmed milk',          per: 100, unit: 'ml', kcal: 49,  p: 3.4,  c: 5.0,  f: 1.7,  fb: 0 },
+  { name: 'Greek yogurt (full fat)',    per: 100, unit: 'g',  kcal: 100, p: 9.1,  c: 4.0,  f: 5.0,  fb: 0 },
+  { name: 'Skyr (plain)',               per: 100, unit: 'g',  kcal: 63,  p: 11.0, c: 4.0,  f: 0.2,  fb: 0 },
+  { name: 'Lentils (cooked)',           per: 100, unit: 'g',  kcal: 116, p: 9.0,  c: 20.3, f: 0.4,  fb: 7.9 },
+  { name: 'Chickpeas (cooked)',         per: 100, unit: 'g',  kcal: 164, p: 8.9,  c: 27.4, f: 2.6,  fb: 7.6 },
+  { name: 'Firm tofu',                  per: 100, unit: 'g',  kcal: 144, p: 17.3, c: 2.8,  f: 8.7,  fb: 2.3 },
+  { name: 'Tempeh',                     per: 100, unit: 'g',  kcal: 192, p: 20.3, c: 7.8,  f: 11.0, fb: 4.8 },
+  { name: 'Whey protein',               per: 100, unit: 'g',  kcal: 390, p: 72.0, c: 8.0,  f: 6.0,  fb: 1.0 },
+  { name: 'Peanut butter',              per: 100, unit: 'g',  kcal: 597, p: 22.0, c: 22.0, f: 51.0, fb: 4.8 },
+  { name: 'Whole wheat bread',          per: 100, unit: 'g',  kcal: 254, p: 12.0, c: 43.0, f: 2.4,  fb: 6.0 },
+  { name: 'Avocado',                    per: 100, unit: 'g',  kcal: 160, p: 2.0,  c: 8.5,  f: 14.7, fb: 6.7 },
+  { name: 'Broccoli',                   per: 100, unit: 'g',  kcal: 34,  p: 2.8,  c: 6.6,  f: 0.4,  fb: 2.6 },
+  { name: 'Spinach',                    per: 100, unit: 'g',  kcal: 23,  p: 2.9,  c: 3.6,  f: 0.4,  fb: 2.2 },
+  { name: 'Tomato',                     per: 100, unit: 'g',  kcal: 18,  p: 0.9,  c: 3.9,  f: 0.2,  fb: 1.2 },
+  { name: 'Apple',                      per: 100, unit: 'g',  kcal: 52,  p: 0.3,  c: 13.8, f: 0.2,  fb: 2.4 },
+  { name: 'Orange',                     per: 100, unit: 'g',  kcal: 47,  p: 0.9,  c: 11.8, f: 0.1,  fb: 2.4 },
+  { name: 'Blueberries',                per: 100, unit: 'g',  kcal: 57,  p: 0.7,  c: 14.5, f: 0.3,  fb: 2.4 },
+  { name: 'Strawberries',               per: 100, unit: 'g',  kcal: 33,  p: 0.6,  c: 8.0,  f: 0.2,  fb: 2.0 },
+  { name: 'Dark chocolate 70%',         per: 100, unit: 'g',  kcal: 598, p: 7.8,  c: 45.9, f: 42.6, fb: 10.9 },
+  { name: 'Honey',                      per: 100, unit: 'g',  kcal: 304, p: 0.3,  c: 82.4, f: 0,    fb: 0.2 },
+  { name: 'Quinoa (cooked)',            per: 100, unit: 'g',  kcal: 120, p: 4.4,  c: 21.3, f: 1.9,  fb: 2.8 },
+  { name: 'Oat milk',                   per: 100, unit: 'ml', kcal: 47,  p: 1.5,  c: 4.5,  f: 1.5,  fb: 0.8 },
+  { name: 'Walnuts',                    per: 100, unit: 'g',  kcal: 654, p: 15.4, c: 14.0, f: 66.3, fb: 6.7 },
+  { name: 'Cheddar',                    per: 100, unit: 'g',  kcal: 403, p: 24.9, c: 1.3,  f: 33.1, fb: 0 },
+  { name: 'Mozzarella',                 per: 100, unit: 'g',  kcal: 300, p: 22.2, c: 1.1,  f: 24.4, fb: 0 },
+  { name: 'Feta',                       per: 100, unit: 'g',  kcal: 264, p: 14.2, c: 4.1,  f: 22.7, fb: 0 },
+  { name: 'Hummus',                     per: 100, unit: 'g',  kcal: 166, p: 7.9,  c: 14.3, f: 9.6,  fb: 6.0 },
+  { name: 'Dates (medjool)',            per: 100, unit: 'g',  kcal: 277, p: 2.0,  c: 75.0, f: 0.2,  fb: 6.7 },
+  { name: 'Raisins',                    per: 100, unit: 'g',  kcal: 299, p: 3.1,  c: 79.0, f: 0.5,  fb: 3.7 },
+  { name: 'Rye bread',                  per: 100, unit: 'g',  kcal: 259, p: 8.5,  c: 49.7, f: 3.5,  fb: 5.8 },
+  { name: 'Corn tortilla',              per: 100, unit: 'g',  kcal: 218, p: 4.2,  c: 42.6, f: 1.5,  fb: 6.3 },
+  { name: 'Cucumber',                   per: 100, unit: 'g',  kcal: 14,  p: 0.6,  c: 2.2,  f: 0.2,  fb: 0.5 },
+  { name: 'Carrot',                     per: 100, unit: 'g',  kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2,  fb: 2.8 },
+  { name: 'Bell pepper',                per: 100, unit: 'g',  kcal: 26,  p: 1.0,  c: 6.0,  f: 0.3,  fb: 2.1 }
 ];
 
 /* Preset meals: lists of [ingredient name, amount] resolved against INGREDIENTS. */
@@ -494,14 +517,14 @@ function findIngredient(name) {
   return INGREDIENTS.find(i => i.name.toLowerCase() === n);
 }
 function presetMacros(preset) {
-  const t = { kcal: 0, p: 0, c: 0, f: 0 };
+  const t = { kcal: 0, p: 0, c: 0, f: 0, fb: 0 };
   for (const [n, amt] of preset.items) {
     const ing = findIngredient(n);
     if (!ing) continue;
     const k = amt / ing.per;
-    t.kcal += ing.kcal * k; t.p += ing.p * k; t.c += ing.c * k; t.f += ing.f * k;
+    t.kcal += ing.kcal * k; t.p += ing.p * k; t.c += ing.c * k; t.f += ing.f * k; t.fb += (ing.fb || 0) * k;
   }
-  return { kcal: Math.round(t.kcal), p: Math.round(t.p), c: Math.round(t.c), f: Math.round(t.f) };
+  return { kcal: Math.round(t.kcal), p: Math.round(t.p), c: Math.round(t.c), f: Math.round(t.f), fb: Math.round(t.fb) };
 }
 
 let db = load();
@@ -511,9 +534,9 @@ let backupTimer = null;
 
 function defaults() {
   return {
-    goal: 2000, goalP: 150, goalC: 205, goalF: 65,
+    goal: 2000, goalP: 150, goalC: 205, goalF: 65, goalFb: 30,
     entries: [], gistToken: '', gistId: '', lastBackup: 0,
-    profile: { sex: 'm', age: '', h: '', w: '', act: '1.55', adj: '0', prot: 'auto' }
+    profile: Object.assign({}, DEFAULT_PROFILE)
   };
 }
 function load() {
@@ -523,7 +546,13 @@ function load() {
     const db = Object.assign(d, stored, { profile: Object.assign(d.profile, stored.profile || {}) });
     // v2 migration: '1.8' was the auto-persisted default before "auto" existed
     if ((stored.v || 1) < 2 && db.profile.prot === '1.8') db.profile.prot = 'auto';
-    db.v = 2;
+    // v3 migration: activity factor -> exercise days/week
+    if (db.profile.act != null) {
+      if (db.profile.days == null)
+        db.profile.days = { '1.2': 0, '1.375': 2, '1.55': 4, '1.725': 6, '1.9': 7 }[db.profile.act] ?? 4;
+      delete db.profile.act;
+    }
+    db.v = 3;
     return db;
   } catch { return defaults(); }
 }
@@ -554,31 +583,31 @@ function esc(s) {
 
 /* ---------- entries ---------- */
 
-function addEntry(name, kcal, p, c, f, items) {
+function addEntry(name, kcal, p, c, f, fb, items) {
   db.entries.push({
     id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     date: todayStr(),
     ts: Date.now(),
     name: name || 'Food',
     kcal: kcal,
-    p: p || 0, c: c || 0, f: f || 0,
+    p: p || 0, c: c || 0, f: f || 0, fb: fb || 0,
     items: items || null           // [[ingredient name, amount], ...] when known
   });
   save();
 }
 function scaleIng(ing, amt) {
   const k = amt / ing.per;
-  return { kcal: Math.round(ing.kcal * k), p: Math.round(ing.p * k), c: Math.round(ing.c * k), f: Math.round(ing.f * k) };
+  return { kcal: Math.round(ing.kcal * k), p: Math.round(ing.p * k), c: Math.round(ing.c * k), f: Math.round(ing.f * k), fb: Math.round((ing.fb || 0) * k) };
 }
 function recomputeFromItems(e) {
-  const t = { kcal: 0, p: 0, c: 0, f: 0 };
+  const t = { kcal: 0, p: 0, c: 0, f: 0, fb: 0 };
   for (const [n, amt] of e.items) {
     const ing = findIngredient(n);
     if (!ing) continue;
     const k = amt / ing.per;
-    t.kcal += ing.kcal * k; t.p += ing.p * k; t.c += ing.c * k; t.f += ing.f * k;
+    t.kcal += ing.kcal * k; t.p += ing.p * k; t.c += ing.c * k; t.f += ing.f * k; t.fb += (ing.fb || 0) * k;
   }
-  e.kcal = Math.round(t.kcal); e.p = Math.round(t.p); e.c = Math.round(t.c); e.f = Math.round(t.f);
+  e.kcal = Math.round(t.kcal); e.p = Math.round(t.p); e.c = Math.round(t.c); e.f = Math.round(t.f); e.fb = Math.round(t.fb);
 }
 function deleteEntry(id) {
   const e = db.entries.find(e => e.id === id);
@@ -589,8 +618,8 @@ function deleteEntry(id) {
 }
 function dayTotals(dateStr) {
   return db.entries.filter(e => e.date === dateStr).reduce(
-    (s, e) => ({ kcal: s.kcal + e.kcal, p: s.p + (e.p || 0), c: s.c + (e.c || 0), f: s.f + (e.f || 0) }),
-    { kcal: 0, p: 0, c: 0, f: 0 }
+    (s, e) => ({ kcal: s.kcal + e.kcal, p: s.p + (e.p || 0), c: s.c + (e.c || 0), f: s.f + (e.f || 0), fb: s.fb + (e.fb || 0) }),
+    { kcal: 0, p: 0, c: 0, f: 0, fb: 0 }
   );
 }
 function chipFoods() {
@@ -599,14 +628,14 @@ function chipFoods() {
   const names = new Set(out.map(f => f.name.toLowerCase()));
   const m = {};
   for (const e of db.entries) {
-    const k = JSON.stringify([e.name, e.kcal, e.p || 0, e.c || 0, e.f || 0]);
+    const k = JSON.stringify([e.name, e.kcal, e.p || 0, e.c || 0, e.f || 0, e.fb || 0]);
     m[k] = (m[k] || 0) + 1;
   }
   for (const [k] of Object.entries(m).sort((a, b) => b[1] - a[1])) {
     if (out.length >= 10) break;
-    const [name, kcal, p, c, f] = JSON.parse(k);
+    const [name, kcal, p, c, f, fb] = JSON.parse(k);
     if (names.has(name.toLowerCase())) continue;
-    out.push({ name, kcal, p, c, f });
+    out.push({ name, kcal, p, c, f, fb });
   }
   return out;
 }
@@ -617,11 +646,12 @@ function render() {
   // header
   $('#dateLabel').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
   const t = dayTotals(todayStr());
+  const g = activeGoals();
   $('#totalKcal').textContent = t.kcal;
-  $('#goalKcal').textContent = db.goal;
-  $('#barFill').style.width = Math.min(100, t.kcal / db.goal * 100) + '%';
-  $('#barFill').style.background = t.kcal > db.goal ? 'var(--danger)' : 'var(--accent)';
-  for (const [letter, val, goal] of [['P', t.p, db.goalP], ['C', t.c, db.goalC], ['F', t.f, db.goalF]]) {
+  $('#goalKcal').textContent = g.kcal;
+  $('#barFill').style.width = Math.min(100, t.kcal / g.kcal * 100) + '%';
+  $('#barFill').style.background = t.kcal > g.kcal ? 'var(--danger)' : 'var(--accent)';
+  for (const [letter, val, goal] of [['P', t.p, g.p], ['C', t.c, g.c], ['F', t.f, g.f], ['B', t.fb, g.fb]]) {
     $('#m' + letter + 'v').textContent = val;
     $('#m' + letter + 'g').textContent = '/' + goal + 'g';
     const bar = $('#m' + letter + 'b');
@@ -643,9 +673,9 @@ function render() {
 }
 
 function entryLi(e, bg) {
-  const hasMacros = (e.p || 0) + (e.c || 0) + (e.f || 0) > 0;
+  const hasMacros = (e.p || 0) + (e.c || 0) + (e.f || 0) + (e.fb || 0) > 0;
   const em = hasMacros
-    ? `<div class="em"><i class="ip">${e.p || 0}P</i> · <i class="ic">${e.c || 0}C</i> · <i class="if">${e.f || 0}F</i></div>`
+    ? `<div class="em"><i class="ip">${e.p || 0}P</i> · <i class="ic">${e.c || 0}C</i> · <i class="if">${e.f || 0}F</i> · <i class="ib">${e.fb || 0}Fb</i></div>`
     : '';
   return `
     <li class="entry" data-id="${e.id}">
@@ -658,7 +688,7 @@ function entryLi(e, bg) {
 
 function renderToday() {
   $('#chips').innerHTML = chipFoods().map(f =>
-    `<span class="chip${f.preset ? ' preset' : ''}" data-name="${esc(f.name)}" data-kcal="${f.kcal}" data-p="${f.p || 0}" data-c="${f.c || 0}" data-f="${f.f || 0}">${esc(f.name)}<b>${f.kcal}</b></span>`
+    `<span class="chip${f.preset ? ' preset' : ''}" data-name="${esc(f.name)}" data-kcal="${f.kcal}" data-p="${f.p || 0}" data-c="${f.c || 0}" data-f="${f.f || 0}" data-fb="${f.fb || 0}">${esc(f.name)}<b>${f.kcal}</b></span>`
   ).join('');
   const items = db.entries.filter(e => e.date === todayStr()).sort((a, b) => b.ts - a.ts);
   $('#todayList').innerHTML = items.length
@@ -667,17 +697,18 @@ function renderToday() {
 }
 
 function renderHistory() {
+  const g = activeGoals();
   const days = [...new Set(db.entries.map(e => e.date))].sort().reverse();
   $('#historyList').innerHTML = days.length
     ? days.map(d => {
         const t = dayTotals(d);
-        const over = t.kcal > db.goal;
-        const pct = Math.min(100, t.kcal / db.goal * 100);
+        const over = t.kcal > g.kcal;
+        const pct = Math.min(100, t.kcal / g.kcal * 100);
         const entries = expandedDay === d
           ? `<ul>${db.entries.filter(e => e.date === d).sort((a, b) => b.ts - a.ts).map(e => entryLi(e)).join('')}</ul>`
           : '';
         return `<div class="day${over ? ' over' : ''}" data-day="${d}">
-          <div class="row"><span class="d">${fmtDay(d)}</span><span class="t"><b>${t.kcal}</b> / ${db.goal} · ${t.p}P ${t.c}C ${t.f}F</span></div>
+          <div class="row"><span class="d">${fmtDay(d)}</span><span class="t"><b>${t.kcal}</b> / ${g.kcal} · ${t.p}P ${t.c}C ${t.f}F</span></div>
           <div class="mini"><div style="width:${pct}%"></div></div>
           ${entries}
         </div>`;
@@ -699,13 +730,23 @@ function calcGoals() {
   const age = +p.age, h = +p.h, w = +p.w;
   if (!(age > 0 && h > 0 && w > 0)) return null;
   const bmr = 10 * w + 6.25 * h - 5 * age + (p.sex === 'm' ? 5 : -161);
-  const tdee = bmr * +p.act;
+  const tdee = bmr * (ACT_FACTORS[+p.days] ?? 1.55);
   const kcal = Math.max(1200, Math.round(tdee + +p.adj));
   const rate = proteinRate();
   const protein = Math.round(w * rate);
   const fat = Math.round(kcal * 0.25 / 9);
   const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
-  return { bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, protein, carbs, fat, rate };
+  const fiber = Math.round(kcal * 14 / 1000);   // IOM: 14g per 1000 kcal
+  return { bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, protein, carbs, fat, fiber, rate };
+}
+
+/* Daily targets: computed live from the profile; stored goals are only a
+   fallback while the profile is incomplete. */
+function activeGoals() {
+  const r = calcGoals();
+  return r
+    ? { kcal: r.kcal, p: r.protein, c: r.carbs, f: r.fat, fb: r.fiber }
+    : { kcal: db.goal, p: db.goalP, c: db.goalC, f: db.goalF, fb: db.goalFb };
 }
 
 function renderProfile() {
@@ -714,9 +755,10 @@ function renderProfile() {
   if (document.activeElement !== $('#pfH')) $('#pfH').value = p.h;
   if (document.activeElement !== $('#pfW')) $('#pfW').value = p.w;
   $('#pfSex').value = p.sex;
-  $('#pfAct').value = p.act;
   $('#pfAdj').value = p.adj;
   $('#pfProt').value = p.prot;
+  document.querySelectorAll('#pfDays button').forEach(b =>
+    b.classList.toggle('active', +b.dataset.days === +p.days));
 
   const r = calcGoals();
   $('#pfResult').innerHTML = r
@@ -725,17 +767,10 @@ function renderProfile() {
          <span class="p">${r.protein}g protein</span>
          <span class="c">${r.carbs}g carbs</span>
          <span class="f">${r.fat}g fat</span>
+         <span class="b">${r.fiber}g fiber</span>
        </div>
-       <div class="meta">BMR ${r.bmr} kcal · maintenance ${r.tdee} kcal · protein ${r.rate} g/kg${db.profile.prot === 'auto' ? ' (auto)' : ''}</div>`
+       <div class="meta">Used as your daily targets · BMR ${r.bmr} kcal · maintenance ${r.tdee} kcal · protein ${r.rate} g/kg${db.profile.prot === 'auto' ? ' (auto)' : ''}</div>`
     : '<div class="meta">Fill in age, height and weight to calculate.</div>';
-}
-
-function applyGoals() {
-  const r = calcGoals();
-  if (!r) { $('#pfApplied').textContent = 'Fill in your details first.'; return; }
-  db.goal = r.kcal; db.goalP = r.protein; db.goalC = r.carbs; db.goalF = r.fat;
-  save();
-  $('#pfApplied').textContent = `Goals set: ${r.kcal} kcal · ${r.protein}P / ${r.carbs}C / ${r.fat}F`;
 }
 
 /* ---------- entry editor ---------- */
@@ -769,10 +804,10 @@ function renderEditor() {
           <span class="sName">${esc(n)}</span>
           <input class="sAmt" data-idx="${i}" type="number" inputmode="decimal" min="0" step="any" value="${amt}">
           <span class="sUnit">${ing ? ing.unit : 'g'}</span>
-          <span class="sMac" data-mac="${i}">${m ? `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F` : 'not in ingredient database'}</span>
+          <span class="sMac" data-mac="${i}">${m ? `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb` : 'not in ingredient database'}</span>
         </div>`;
       }).join('')}
-      <div class="sTotal" id="sTotal">Total: ${e.kcal} kcal · ${e.p}P ${e.c}C ${e.f}F</div>
+      <div class="sTotal" id="sTotal">Total: ${e.kcal} kcal · ${e.p}P ${e.c}C ${e.f}F ${e.fb || 0}Fb</div>
       <div class="btnRow"><button class="btn primary" id="sheetClose">Done</button></div>`;
   } else {
     $('#sheet').innerHTML = `
@@ -783,6 +818,7 @@ function renderEditor() {
       <label>Protein (g)</label><input class="fld" data-field="p" type="number" inputmode="numeric" min="0" value="${e.p || 0}">
       <label>Carbs (g)</label><input class="fld" data-field="c" type="number" inputmode="numeric" min="0" value="${e.c || 0}">
       <label>Fat (g)</label><input class="fld" data-field="f" type="number" inputmode="numeric" min="0" value="${e.f || 0}">
+      <label>Fiber (g)</label><input class="fld" data-field="fb" type="number" inputmode="numeric" min="0" value="${e.fb || 0}">
       <div class="btnRow"><button class="btn primary" id="sheetClose">Done</button></div>`;
   }
 }
@@ -798,9 +834,9 @@ $('#sheet').addEventListener('input', ev => {
     const ing = findIngredient(e.items[i][0]);
     if (ing) {
       const m = scaleIng(ing, e.items[i][1]);
-      $(`[data-mac="${i}"]`).textContent = `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F`;
+      $(`[data-mac="${i}"]`).textContent = `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb`;
     }
-    $('#sTotal').textContent = `Total: ${e.kcal} kcal · ${e.p}P ${e.c}C ${e.f}F`;
+    $('#sTotal').textContent = `Total: ${e.kcal} kcal · ${e.p}P ${e.c}C ${e.f}F ${e.fb || 0}Fb`;
     save();
   } else if (t.dataset.field) {
     const k = t.dataset.field;
@@ -812,7 +848,7 @@ $('#sheet').addEventListener('input', ev => {
 /* ---------- settings ---------- */
 
 function renderSettings() {
-  for (const [id, val] of [['#goalInput', db.goal], ['#goalPInput', db.goalP], ['#goalCInput', db.goalC], ['#goalFInput', db.goalF], ['#tokenInput', db.gistToken], ['#gistIdInput', db.gistId]])
+  for (const [id, val] of [['#goalInput', db.goal], ['#goalPInput', db.goalP], ['#goalCInput', db.goalC], ['#goalFInput', db.goalF], ['#goalFbInput', db.goalFb], ['#tokenInput', db.gistToken], ['#gistIdInput', db.gistId]])
     if (document.activeElement !== $(id)) $(id).value = val;
   renderBackupStatus();
 }
@@ -848,7 +884,7 @@ function ghHeaders() {
 
 function backupPayload() {
   return JSON.stringify({
-    goal: db.goal, goalP: db.goalP, goalC: db.goalC, goalF: db.goalF,
+    goal: db.goal, goalP: db.goalP, goalC: db.goalC, goalF: db.goalF, goalFb: db.goalFb,
     profile: db.profile, entries: db.entries,
     exportedAt: new Date().toISOString()
   }, null, 2);
@@ -910,6 +946,7 @@ async function restoreFromGist() {
     if (data.goalP >= 0) db.goalP = data.goalP;
     if (data.goalC >= 0) db.goalC = data.goalC;
     if (data.goalF >= 0) db.goalF = data.goalF;
+    if (data.goalFb >= 0) db.goalFb = data.goalFb;
     if (data.profile) db.profile = Object.assign(defaults().profile, data.profile);
     persist();
     render();
@@ -951,7 +988,8 @@ function recalcFromIngredient() {
   $('#foodP').value = Math.round(ing.p * k);
   $('#foodC').value = Math.round(ing.c * k);
   $('#foodF').value = Math.round(ing.f * k);
-  $('#amtHint').textContent = `→ ${Math.round(ing.kcal * k)} kcal · ${Math.round(ing.p * k)}P ${Math.round(ing.c * k)}C ${Math.round(ing.f * k)}F`;
+  $('#foodFb').value = Math.round((ing.fb || 0) * k);
+  $('#amtHint').textContent = `→ ${Math.round(ing.kcal * k)} kcal · ${Math.round(ing.p * k)}P ${Math.round(ing.c * k)}C ${Math.round(ing.f * k)}F ${Math.round((ing.fb || 0) * k)}Fb`;
 }
 $('#foodName').addEventListener('input', recalcFromIngredient);
 $('#foodAmt').addEventListener('input', recalcFromIngredient);
@@ -977,9 +1015,10 @@ $('#addForm').addEventListener('submit', e => {
     parseInt($('#foodP').value, 10) || 0,
     parseInt($('#foodC').value, 10) || 0,
     parseInt($('#foodF').value, 10) || 0,
+    parseInt($('#foodFb').value, 10) || 0,
     items
   );
-  for (const id of ['#foodName', '#foodKcal', '#foodP', '#foodC', '#foodF', '#foodAmt']) $(id).value = '';
+  for (const id of ['#foodName', '#foodKcal', '#foodP', '#foodC', '#foodF', '#foodFb', '#foodAmt']) $(id).value = '';
   $('#amtRow').style.display = 'none';
   document.activeElement?.blur();
 });
@@ -996,7 +1035,7 @@ document.body.addEventListener('click', e => {
     // fill the add form so amounts can be tweaked before logging
     $('#foodName').value = chip.dataset.name;
     $('#foodKcal').value = chip.dataset.kcal;
-    for (const [id, key] of [['#foodP', 'p'], ['#foodC', 'c'], ['#foodF', 'f']])
+    for (const [id, key] of [['#foodP', 'p'], ['#foodC', 'c'], ['#foodF', 'f'], ['#foodFb', 'fb']])
       $(id).value = +chip.dataset[key] || '';
     recalcFromIngredient();
     return;
@@ -1012,21 +1051,29 @@ document.body.addEventListener('click', e => {
   if (tab) { view = tab.dataset.view; render(); }
 });
 
-// goals (settings)
-for (const [id, key] of [['#goalInput', 'goal'], ['#goalPInput', 'goalP'], ['#goalCInput', 'goalC'], ['#goalFInput', 'goalF']])
+// fallback goals (settings)
+for (const [id, key] of [['#goalInput', 'goal'], ['#goalPInput', 'goalP'], ['#goalCInput', 'goalC'], ['#goalFInput', 'goalF'], ['#goalFbInput', 'goalFb']])
   $(id).addEventListener('change', () => {
     const v = parseInt($(id).value, 10);
     if (v >= 0) { db[key] = v; save(); }
   });
 
-// profile inputs
-for (const [id, key] of [['#pfSex', 'sex'], ['#pfAge', 'age'], ['#pfH', 'h'], ['#pfW', 'w'], ['#pfAct', 'act'], ['#pfAdj', 'adj'], ['#pfProt', 'prot']])
+// profile inputs — targets update live everywhere, so re-render fully
+for (const [id, key] of [['#pfSex', 'sex'], ['#pfAge', 'age'], ['#pfH', 'h'], ['#pfW', 'w'], ['#pfAdj', 'adj'], ['#pfProt', 'prot']])
   $(id).addEventListener('input', () => {
     db.profile[key] = $(id).value;
     persist();
-    renderProfile();
+    scheduleBackup();
+    render();
   });
-$('#pfApply').addEventListener('click', applyGoals);
+$('#pfDays').addEventListener('click', e => {
+  const b = e.target.closest('button[data-days]');
+  if (!b) return;
+  db.profile.days = +b.dataset.days;
+  persist();
+  scheduleBackup();
+  render();
+});
 
 $('#tokenInput').addEventListener('change', () => {
   db.gistToken = $('#tokenInput').value.trim();
