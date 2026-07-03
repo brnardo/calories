@@ -127,6 +127,7 @@
     background: var(--card); border-radius: 14px;
     padding: 12px 14px; margin-bottom: 8px;
     display: flex; align-items: center; gap: 12px;
+    cursor: pointer;
   }
   li.entry .time { color: var(--muted); font-size: 13px; width: 44px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
   li.entry .name { flex: 1; min-width: 0; overflow: hidden; }
@@ -191,6 +192,31 @@
   .resultCard .split .c { color: var(--carbs); }
   .resultCard .split .f { color: var(--fat); }
   .resultCard .meta { color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+  /* --- entry editor sheet --- */
+  #sheetWrap { position: fixed; inset: 0; z-index: 20; }
+  #sheetWrap.hidden { display: none; }
+  #sheetBack { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
+  #sheet {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: var(--card); border-radius: 20px 20px 0 0;
+    padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+    max-height: 80%; overflow-y: auto;
+  }
+  #sheet h3 { font-size: 17px; margin-bottom: 4px; }
+  #sheet .sSub { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .sRow {
+    display: grid; grid-template-columns: 1fr 84px 28px;
+    gap: 2px 8px; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--card2);
+  }
+  .sRow .sName { font-size: 15px; }
+  .sRow input { background: var(--card2); padding: 8px 10px; font-size: 15px; text-align: right; }
+  .sRow .sUnit { color: var(--muted); font-size: 13px; }
+  .sRow .sMac { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .sTotal { margin-top: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #sheet label { display: block; color: var(--muted); font-size: 13px; margin: 12px 0 6px; }
+  #sheet .fld { background: var(--card2); width: 100%; padding: 12px; }
 
   /* --- nav --- */
   nav {
@@ -293,11 +319,11 @@
     </div>
     <label for="pfAct">Activity level</label>
     <select id="pfAct">
-      <option value="1.2">Sedentary — desk job, little exercise</option>
-      <option value="1.375">Light — exercise 1–3×/week</option>
-      <option value="1.55">Moderate — exercise 3–5×/week</option>
-      <option value="1.725">Very active — hard exercise 6–7×/week</option>
-      <option value="1.9">Athlete — physical job + training</option>
+      <option value="1.2">Sedentary — no exercise</option>
+      <option value="1.375">Light — 1–2 workouts/week</option>
+      <option value="1.55">Moderate — 3–4 workouts/week</option>
+      <option value="1.725">Very active — 5–6 workouts/week</option>
+      <option value="1.9">Athlete — daily training or physical job</option>
     </select>
     <label for="pfAdj">Goal</label>
     <select id="pfAdj">
@@ -309,9 +335,11 @@
     </select>
     <label for="pfProt">Protein target</label>
     <select id="pfProt">
-      <option value="1.6">Standard — 1.6 g/kg</option>
-      <option value="1.8">Active — 1.8 g/kg</option>
-      <option value="2.2">Building muscle / cutting — 2.2 g/kg</option>
+      <option value="auto">Auto — recommended for your goal</option>
+      <option value="1.6">1.6 g/kg — maintenance baseline</option>
+      <option value="1.8">1.8 g/kg — active / gaining</option>
+      <option value="2.0">2.0 g/kg — slow cut</option>
+      <option value="2.2">2.2 g/kg — aggressive cut</option>
     </select>
     <div class="resultCard" id="pfResult">
       <div class="meta">Fill in age, height and weight to calculate.</div>
@@ -366,6 +394,11 @@
     <p class="hint">In Safari: Share&nbsp;→ <b>Add to Home Screen</b>. The app then works fully offline.</p>
   </div>
 </main>
+
+<div id="sheetWrap" class="hidden">
+  <div id="sheetBack"></div>
+  <div id="sheet"></div>
+</div>
 
 <nav>
   <button data-view="today" class="active"><span class="ico">🍽</span>Today</button>
@@ -480,14 +513,18 @@ function defaults() {
   return {
     goal: 2000, goalP: 150, goalC: 205, goalF: 65,
     entries: [], gistToken: '', gistId: '', lastBackup: 0,
-    profile: { sex: 'm', age: '', h: '', w: '', act: '1.55', adj: '0', prot: '1.8' }
+    profile: { sex: 'm', age: '', h: '', w: '', act: '1.55', adj: '0', prot: 'auto' }
   };
 }
 function load() {
   try {
     const d = defaults();
     const stored = JSON.parse(localStorage.getItem(KEY)) || {};
-    return Object.assign(d, stored, { profile: Object.assign(d.profile, stored.profile || {}) });
+    const db = Object.assign(d, stored, { profile: Object.assign(d.profile, stored.profile || {}) });
+    // v2 migration: '1.8' was the auto-persisted default before "auto" existed
+    if ((stored.v || 1) < 2 && db.profile.prot === '1.8') db.profile.prot = 'auto';
+    db.v = 2;
+    return db;
   } catch { return defaults(); }
 }
 function persist() {
@@ -517,16 +554,31 @@ function esc(s) {
 
 /* ---------- entries ---------- */
 
-function addEntry(name, kcal, p, c, f) {
+function addEntry(name, kcal, p, c, f, items) {
   db.entries.push({
     id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     date: todayStr(),
     ts: Date.now(),
     name: name || 'Food',
     kcal: kcal,
-    p: p || 0, c: c || 0, f: f || 0
+    p: p || 0, c: c || 0, f: f || 0,
+    items: items || null           // [[ingredient name, amount], ...] when known
   });
   save();
+}
+function scaleIng(ing, amt) {
+  const k = amt / ing.per;
+  return { kcal: Math.round(ing.kcal * k), p: Math.round(ing.p * k), c: Math.round(ing.c * k), f: Math.round(ing.f * k) };
+}
+function recomputeFromItems(e) {
+  const t = { kcal: 0, p: 0, c: 0, f: 0 };
+  for (const [n, amt] of e.items) {
+    const ing = findIngredient(n);
+    if (!ing) continue;
+    const k = amt / ing.per;
+    t.kcal += ing.kcal * k; t.p += ing.p * k; t.c += ing.c * k; t.f += ing.f * k;
+  }
+  e.kcal = Math.round(t.kcal); e.p = Math.round(t.p); e.c = Math.round(t.c); e.f = Math.round(t.f);
 }
 function deleteEntry(id) {
   const e = db.entries.find(e => e.id === id);
@@ -596,7 +648,7 @@ function entryLi(e, bg) {
     ? `<div class="em"><i class="ip">${e.p || 0}P</i> · <i class="ic">${e.c || 0}C</i> · <i class="if">${e.f || 0}F</i></div>`
     : '';
   return `
-    <li class="entry">
+    <li class="entry" data-id="${e.id}">
       <span class="time">${fmtTime(e.ts)}</span>
       <span class="name"><div class="n">${esc(e.name)}</div>${em}</span>
       <span class="kcal">${e.kcal}</span>
@@ -635,6 +687,13 @@ function renderHistory() {
 
 /* ---------- profile / goal calculator ---------- */
 
+function proteinRate() {
+  if (db.profile.prot !== 'auto') return +db.profile.prot;
+  // evidence-based: higher protein in a deficit preserves lean mass
+  // (ISSN 1.4–2.0 g/kg; Morton 2018 plateau ~1.6; Helms: more when cutting)
+  return { '-500': 2.2, '-250': 2.0, '0': 1.6, '250': 1.8, '500': 1.8 }[db.profile.adj] ?? 1.8;
+}
+
 function calcGoals() {
   const p = db.profile;
   const age = +p.age, h = +p.h, w = +p.w;
@@ -642,10 +701,11 @@ function calcGoals() {
   const bmr = 10 * w + 6.25 * h - 5 * age + (p.sex === 'm' ? 5 : -161);
   const tdee = bmr * +p.act;
   const kcal = Math.max(1200, Math.round(tdee + +p.adj));
-  const protein = Math.round(w * +p.prot);
+  const rate = proteinRate();
+  const protein = Math.round(w * rate);
   const fat = Math.round(kcal * 0.25 / 9);
   const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
-  return { bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, protein, carbs, fat };
+  return { bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, protein, carbs, fat, rate };
 }
 
 function renderProfile() {
@@ -666,7 +726,7 @@ function renderProfile() {
          <span class="c">${r.carbs}g carbs</span>
          <span class="f">${r.fat}g fat</span>
        </div>
-       <div class="meta">BMR ${r.bmr} kcal · maintenance ${r.tdee} kcal</div>`
+       <div class="meta">BMR ${r.bmr} kcal · maintenance ${r.tdee} kcal · protein ${r.rate} g/kg${db.profile.prot === 'auto' ? ' (auto)' : ''}</div>`
     : '<div class="meta">Fill in age, height and weight to calculate.</div>';
 }
 
@@ -677,6 +737,77 @@ function applyGoals() {
   save();
   $('#pfApplied').textContent = `Goals set: ${r.kcal} kcal · ${r.protein}P / ${r.carbs}C / ${r.fat}F`;
 }
+
+/* ---------- entry editor ---------- */
+
+let editingId = null;
+
+function openEditor(id) {
+  editingId = id;
+  renderEditor();
+  $('#sheetWrap').classList.remove('hidden');
+}
+function closeEditor() {
+  editingId = null;
+  $('#sheetWrap').classList.add('hidden');
+}
+function editingEntry() {
+  return db.entries.find(x => x.id === editingId);
+}
+
+function renderEditor() {
+  const e = editingEntry();
+  if (!e) return;
+  if (e.items && e.items.length) {
+    $('#sheet').innerHTML = `
+      <h3>${esc(e.name)}</h3>
+      <div class="sSub">${fmtDay(e.date)} · ${fmtTime(e.ts)} — edit amounts to recalculate</div>
+      ${e.items.map(([n, amt], i) => {
+        const ing = findIngredient(n);
+        const m = ing ? scaleIng(ing, amt) : null;
+        return `<div class="sRow">
+          <span class="sName">${esc(n)}</span>
+          <input class="sAmt" data-idx="${i}" type="number" inputmode="decimal" min="0" step="any" value="${amt}">
+          <span class="sUnit">${ing ? ing.unit : 'g'}</span>
+          <span class="sMac" data-mac="${i}">${m ? `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F` : 'not in ingredient database'}</span>
+        </div>`;
+      }).join('')}
+      <div class="sTotal" id="sTotal">Total: ${e.kcal} kcal · ${e.p}P ${e.c}C ${e.f}F</div>
+      <div class="btnRow"><button class="btn primary" id="sheetClose">Done</button></div>`;
+  } else {
+    $('#sheet').innerHTML = `
+      <h3>Edit entry</h3>
+      <div class="sSub">${fmtDay(e.date)} · ${fmtTime(e.ts)}</div>
+      <label>Name</label><input class="fld" data-field="name" value="${esc(e.name)}">
+      <label>kcal</label><input class="fld" data-field="kcal" type="number" inputmode="numeric" min="1" value="${e.kcal}">
+      <label>Protein (g)</label><input class="fld" data-field="p" type="number" inputmode="numeric" min="0" value="${e.p || 0}">
+      <label>Carbs (g)</label><input class="fld" data-field="c" type="number" inputmode="numeric" min="0" value="${e.c || 0}">
+      <label>Fat (g)</label><input class="fld" data-field="f" type="number" inputmode="numeric" min="0" value="${e.f || 0}">
+      <div class="btnRow"><button class="btn primary" id="sheetClose">Done</button></div>`;
+  }
+}
+
+$('#sheet').addEventListener('input', ev => {
+  const e = editingEntry();
+  if (!e) return;
+  const t = ev.target;
+  if (t.classList.contains('sAmt')) {
+    const i = +t.dataset.idx;
+    e.items[i][1] = parseFloat(t.value) || 0;
+    recomputeFromItems(e);
+    const ing = findIngredient(e.items[i][0]);
+    if (ing) {
+      const m = scaleIng(ing, e.items[i][1]);
+      $(`[data-mac="${i}"]`).textContent = `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F`;
+    }
+    $('#sTotal').textContent = `Total: ${e.kcal} kcal · ${e.p}P ${e.c}C ${e.f}F`;
+    save();
+  } else if (t.dataset.field) {
+    const k = t.dataset.field;
+    e[k] = k === 'name' ? (t.value.trim() || 'Food') : (parseInt(t.value, 10) || 0);
+    save();
+  }
+});
 
 /* ---------- settings ---------- */
 
@@ -832,13 +963,21 @@ $('#addForm').addEventListener('submit', e => {
   let name = $('#foodName').value.trim();
   const ing = findIngredient(name);
   const amt = parseFloat($('#foodAmt').value);
-  if (ing && amt > 0) name = `${ing.name} ${amt}${ing.unit}`;
+  let items = null;
+  if (ing && amt > 0) {
+    name = `${ing.name} ${amt}${ing.unit}`;
+    items = [[ing.name, amt]];
+  } else {
+    const preset = PRESETS.find(p => p.name.toLowerCase() === name.toLowerCase());
+    if (preset) items = preset.items.map(i => [...i]);
+  }
   addEntry(
     name,
     kcal,
     parseInt($('#foodP').value, 10) || 0,
     parseInt($('#foodC').value, 10) || 0,
-    parseInt($('#foodF').value, 10) || 0
+    parseInt($('#foodF').value, 10) || 0,
+    items
   );
   for (const id of ['#foodName', '#foodKcal', '#foodP', '#foodC', '#foodF', '#foodAmt']) $(id).value = '';
   $('#amtRow').style.display = 'none';
@@ -849,6 +988,9 @@ $('#addForm').addEventListener('submit', e => {
 $('#ingList').innerHTML = INGREDIENTS.map(i => `<option value="${esc(i.name)}">`).join('');
 
 document.body.addEventListener('click', e => {
+  if (e.target.id === 'sheetBack' || e.target.id === 'sheetClose') { closeEditor(); return; }
+  const entry = e.target.closest('li.entry');
+  if (entry && !e.target.closest('.del')) { openEditor(entry.dataset.id); return; }
   const chip = e.target.closest('.chip');
   if (chip) {
     // fill the add form so amounts can be tweaked before logging
