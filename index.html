@@ -95,6 +95,13 @@
   #foodName { flex: 1.6; min-width: 0; }
   #foodKcal { flex: 1; min-width: 0; }
   .formRow.macroRow input { padding: 10px 12px; font-size: 14px; }
+  #amtRow { align-items: center; }
+  #foodAmt { flex: 1; padding: 10px 12px; font-size: 14px; }
+  #amtHint {
+    flex: 1.6; color: var(--muted); font-size: 13px;
+    font-variant-numeric: tabular-nums; padding: 0 4px;
+  }
+  .chip.preset { border: 1px solid #3a3a42; }
   #addBtn {
     background: var(--accent); color: #14100b; font-weight: 700;
     padding: 14px 18px; flex-shrink: 0; cursor: pointer;
@@ -234,9 +241,14 @@
 <main id="viewToday">
   <form id="addForm" autocomplete="off">
     <div class="formRow">
-      <input id="foodName" placeholder="Food" autocapitalize="sentences">
+      <input id="foodName" placeholder="Food" autocapitalize="sentences" list="ingList">
       <input id="foodKcal" placeholder="kcal" type="number" inputmode="numeric" min="1" required>
       <button id="addBtn" type="submit">Add</button>
+    </div>
+    <datalist id="ingList"></datalist>
+    <div class="formRow" id="amtRow" style="display:none">
+      <input id="foodAmt" placeholder="Amount (g)" type="number" inputmode="decimal" min="0" step="any">
+      <span id="amtHint">per-100 auto</span>
     </div>
     <div class="formRow macroRow">
       <input id="foodP" placeholder="Protein g" type="number" inputmode="numeric" min="0">
@@ -367,16 +379,97 @@ const KEY = 'calories-v1';
 const GIST_FILE = 'calories-backup.json';
 const $ = s => document.querySelector(s);
 
-const DEFAULT_MEALS = [
-  { name: '2 eggs',              kcal: 140, p: 12, c: 1,  f: 10 },
-  { name: 'Oatmeal with milk',   kcal: 300, p: 12, c: 50, f: 6 },
-  { name: 'Greek yogurt',        kcal: 100, p: 17, c: 6,  f: 1 },
-  { name: 'Banana',              kcal: 105, p: 1,  c: 27, f: 0 },
-  { name: 'Chicken breast 150g', kcal: 250, p: 46, c: 0,  f: 5 },
-  { name: 'Salmon fillet 150g',  kcal: 310, p: 34, c: 0,  f: 19 },
-  { name: 'Rice, 1 cup',         kcal: 200, p: 4,  c: 45, f: 0 },
-  { name: 'Protein shake',       kcal: 120, p: 24, c: 3,  f: 1 }
+/* Ingredient database: values per `per` unit (g or ml).
+   Branded items from manufacturer labels; generics from USDA FoodData Central. */
+const INGREDIENTS = [
+  // branded
+  { name: 'Alpro soya-coconut yogurt',  per: 100, unit: 'g',  kcal: 55,  p: 3.9,  c: 2.3,  f: 3.0 },
+  { name: 'Alpro oat drink no sugars',  per: 100, unit: 'ml', kcal: 40,  p: 0.2,  c: 5.8,  f: 1.5 },
+  { name: 'Bulk vegan rice protein',    per: 100, unit: 'g',  kcal: 374, p: 80.0, c: 3.8,  f: 3.5 },
+  { name: 'Black coffee',               per: 100, unit: 'ml', kcal: 2,   p: 0,    c: 0,    f: 0 },
+  // staples
+  { name: 'Almonds',                    per: 100, unit: 'g',  kcal: 579, p: 21.2, c: 21.6, f: 49.9 },
+  { name: 'Rolled oats (dry)',          per: 100, unit: 'g',  kcal: 389, p: 16.9, c: 66.3, f: 6.9 },
+  { name: 'Banana',                     per: 100, unit: 'g',  kcal: 89,  p: 1.1,  c: 22.8, f: 0.3 },
+  { name: 'Chicken breast (raw)',       per: 100, unit: 'g',  kcal: 106, p: 23.0, c: 0,    f: 2.0 },
+  { name: 'Whole egg',                  per: 100, unit: 'g',  kcal: 143, p: 12.6, c: 0.7,  f: 9.5 },
+  { name: 'White rice (cooked)',        per: 100, unit: 'g',  kcal: 130, p: 2.7,  c: 28.2, f: 0.3 },
+  { name: 'Brown rice (cooked)',        per: 100, unit: 'g',  kcal: 112, p: 2.6,  c: 24.3, f: 0.9 },
+  { name: 'Pasta (cooked)',             per: 100, unit: 'g',  kcal: 158, p: 5.8,  c: 31.0, f: 0.9 },
+  { name: 'Potato (boiled)',            per: 100, unit: 'g',  kcal: 86,  p: 1.7,  c: 17.5, f: 0.1 },
+  { name: 'Sweet potato (baked)',       per: 100, unit: 'g',  kcal: 90,  p: 2.0,  c: 20.7, f: 0.2 },
+  { name: 'Salmon (raw)',               per: 100, unit: 'g',  kcal: 208, p: 20.4, c: 0,    f: 13.6 },
+  { name: 'Tuna in water (drained)',    per: 100, unit: 'g',  kcal: 116, p: 25.5, c: 0,    f: 0.6 },
+  { name: 'Beef mince 5% (raw)',        per: 100, unit: 'g',  kcal: 137, p: 20.1, c: 0,    f: 6.6 },
+  { name: 'Olive oil',                  per: 100, unit: 'g',  kcal: 884, p: 0,    c: 0,    f: 100 },
+  { name: 'Butter',                     per: 100, unit: 'g',  kcal: 717, p: 0.9,  c: 0.1,  f: 81.1 },
+  { name: 'Whole milk',                 per: 100, unit: 'ml', kcal: 61,  p: 3.2,  c: 4.8,  f: 3.3 },
+  { name: 'Semi-skimmed milk',          per: 100, unit: 'ml', kcal: 49,  p: 3.4,  c: 5.0,  f: 1.7 },
+  { name: 'Greek yogurt (full fat)',    per: 100, unit: 'g',  kcal: 100, p: 9.1,  c: 4.0,  f: 5.0 },
+  { name: 'Skyr (plain)',               per: 100, unit: 'g',  kcal: 63,  p: 11.0, c: 4.0,  f: 0.2 },
+  { name: 'Lentils (cooked)',           per: 100, unit: 'g',  kcal: 116, p: 9.0,  c: 20.3, f: 0.4 },
+  { name: 'Chickpeas (cooked)',         per: 100, unit: 'g',  kcal: 164, p: 8.9,  c: 27.4, f: 2.6 },
+  { name: 'Firm tofu',                  per: 100, unit: 'g',  kcal: 144, p: 17.3, c: 2.8,  f: 8.7 },
+  { name: 'Tempeh',                     per: 100, unit: 'g',  kcal: 192, p: 20.3, c: 7.8,  f: 11.0 },
+  { name: 'Whey protein',               per: 100, unit: 'g',  kcal: 390, p: 72.0, c: 8.0,  f: 6.0 },
+  { name: 'Peanut butter',              per: 100, unit: 'g',  kcal: 597, p: 22.0, c: 22.0, f: 51.0 },
+  { name: 'Whole wheat bread',          per: 100, unit: 'g',  kcal: 254, p: 12.0, c: 43.0, f: 2.4 },
+  { name: 'Avocado',                    per: 100, unit: 'g',  kcal: 160, p: 2.0,  c: 8.5,  f: 14.7 },
+  { name: 'Broccoli',                   per: 100, unit: 'g',  kcal: 34,  p: 2.8,  c: 6.6,  f: 0.4 },
+  { name: 'Spinach',                    per: 100, unit: 'g',  kcal: 23,  p: 2.9,  c: 3.6,  f: 0.4 },
+  { name: 'Tomato',                     per: 100, unit: 'g',  kcal: 18,  p: 0.9,  c: 3.9,  f: 0.2 },
+  { name: 'Apple',                      per: 100, unit: 'g',  kcal: 52,  p: 0.3,  c: 13.8, f: 0.2 },
+  { name: 'Orange',                     per: 100, unit: 'g',  kcal: 47,  p: 0.9,  c: 11.8, f: 0.1 },
+  { name: 'Blueberries',                per: 100, unit: 'g',  kcal: 57,  p: 0.7,  c: 14.5, f: 0.3 },
+  { name: 'Strawberries',               per: 100, unit: 'g',  kcal: 33,  p: 0.6,  c: 8.0,  f: 0.2 },
+  { name: 'Dark chocolate 70%',         per: 100, unit: 'g',  kcal: 598, p: 7.8,  c: 45.9, f: 42.6 },
+  { name: 'Honey',                      per: 100, unit: 'g',  kcal: 304, p: 0.3,  c: 82.4, f: 0 },
+  { name: 'Quinoa (cooked)',            per: 100, unit: 'g',  kcal: 120, p: 4.4,  c: 21.3, f: 1.9 },
+  { name: 'Oat milk',                   per: 100, unit: 'ml', kcal: 47,  p: 1.5,  c: 4.5,  f: 1.5 },
+  { name: 'Walnuts',                    per: 100, unit: 'g',  kcal: 654, p: 15.4, c: 14.0, f: 66.3 },
+  { name: 'Cheddar',                    per: 100, unit: 'g',  kcal: 403, p: 24.9, c: 1.3,  f: 33.1 },
+  { name: 'Mozzarella',                 per: 100, unit: 'g',  kcal: 300, p: 22.2, c: 1.1,  f: 24.4 },
+  { name: 'Feta',                       per: 100, unit: 'g',  kcal: 264, p: 14.2, c: 4.1,  f: 22.7 },
+  { name: 'Hummus',                     per: 100, unit: 'g',  kcal: 166, p: 7.9,  c: 14.3, f: 9.6 },
+  { name: 'Dates (medjool)',            per: 100, unit: 'g',  kcal: 277, p: 2.0,  c: 75.0, f: 0.2 },
+  { name: 'Raisins',                    per: 100, unit: 'g',  kcal: 299, p: 3.1,  c: 79.0, f: 0.5 },
+  { name: 'Rye bread',                  per: 100, unit: 'g',  kcal: 259, p: 8.5,  c: 49.7, f: 3.5 },
+  { name: 'Corn tortilla',              per: 100, unit: 'g',  kcal: 218, p: 4.2,  c: 42.6, f: 1.5 },
+  { name: 'Cucumber',                   per: 100, unit: 'g',  kcal: 14,  p: 0.6,  c: 2.2,  f: 0.2 },
+  { name: 'Carrot',                     per: 100, unit: 'g',  kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2 },
+  { name: 'Bell pepper',                per: 100, unit: 'g',  kcal: 26,  p: 1.0,  c: 6.0,  f: 0.3 }
 ];
+
+/* Preset meals: lists of [ingredient name, amount] resolved against INGREDIENTS. */
+const PRESETS = [
+  {
+    name: 'Breakfast',
+    items: [
+      ['Alpro soya-coconut yogurt', 80],
+      ['Almonds', 25],
+      ['Rolled oats (dry)', 75],
+      ['Bulk vegan rice protein', 30],   // one 30g scoop
+      ['Banana', 60],                    // half a banana
+      ['Alpro oat drink no sugars', 20], // in the coffee
+      ['Black coffee', 200]
+    ]
+  }
+];
+
+function findIngredient(name) {
+  const n = String(name).trim().toLowerCase();
+  return INGREDIENTS.find(i => i.name.toLowerCase() === n);
+}
+function presetMacros(preset) {
+  const t = { kcal: 0, p: 0, c: 0, f: 0 };
+  for (const [n, amt] of preset.items) {
+    const ing = findIngredient(n);
+    if (!ing) continue;
+    const k = amt / ing.per;
+    t.kcal += ing.kcal * k; t.p += ing.p * k; t.c += ing.c * k; t.f += ing.f * k;
+  }
+  return { kcal: Math.round(t.kcal), p: Math.round(t.p), c: Math.round(t.c), f: Math.round(t.f) };
+}
 
 let db = load();
 let view = 'today';
@@ -449,22 +542,21 @@ function dayTotals(dateStr) {
   );
 }
 function chipFoods() {
-  // most-frequent foods from history, padded with default meals
+  // preset meals first (real data), then most-frequent foods from history
+  const out = PRESETS.map(p => Object.assign({ name: p.name, preset: true }, presetMacros(p)));
+  const names = new Set(out.map(f => f.name.toLowerCase()));
   const m = {};
   for (const e of db.entries) {
     const k = JSON.stringify([e.name, e.kcal, e.p || 0, e.c || 0, e.f || 0]);
     m[k] = (m[k] || 0) + 1;
   }
-  const fromHistory = Object.entries(m)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
-    .map(([k]) => { const [name, kcal, p, c, f] = JSON.parse(k); return { name, kcal, p, c, f }; });
-  const names = new Set(fromHistory.map(f => f.name.toLowerCase()));
-  for (const d of DEFAULT_MEALS) {
-    if (fromHistory.length >= 8) break;
-    if (!names.has(d.name.toLowerCase())) fromHistory.push(d);
+  for (const [k] of Object.entries(m).sort((a, b) => b[1] - a[1])) {
+    if (out.length >= 10) break;
+    const [name, kcal, p, c, f] = JSON.parse(k);
+    if (names.has(name.toLowerCase())) continue;
+    out.push({ name, kcal, p, c, f });
   }
-  return fromHistory;
+  return out;
 }
 
 /* ---------- rendering ---------- */
@@ -514,7 +606,7 @@ function entryLi(e, bg) {
 
 function renderToday() {
   $('#chips').innerHTML = chipFoods().map(f =>
-    `<span class="chip" data-name="${esc(f.name)}" data-kcal="${f.kcal}" data-p="${f.p || 0}" data-c="${f.c || 0}" data-f="${f.f || 0}">${esc(f.name)}<b>${f.kcal}</b></span>`
+    `<span class="chip${f.preset ? ' preset' : ''}" data-name="${esc(f.name)}" data-kcal="${f.kcal}" data-p="${f.p || 0}" data-c="${f.c || 0}" data-f="${f.f || 0}">${esc(f.name)}<b>${f.kcal}</b></span>`
   ).join('');
   const items = db.entries.filter(e => e.date === todayStr()).sort((a, b) => b.ts - a.ts);
   $('#todayList').innerHTML = items.length
@@ -714,20 +806,47 @@ async function exportJson() {
 
 /* ---------- events ---------- */
 
+// ingredient auto-calc: when the food name matches the database, entering an
+// amount fills kcal + macros scaled from per-100 values
+function recalcFromIngredient() {
+  const ing = findIngredient($('#foodName').value);
+  $('#amtRow').style.display = ing ? 'flex' : 'none';
+  if (!ing) return;
+  $('#foodAmt').placeholder = 'Amount (' + ing.unit + ')';
+  const amt = parseFloat($('#foodAmt').value);
+  if (!(amt > 0)) { $('#amtHint').textContent = `${ing.kcal} kcal / ${ing.per}${ing.unit}`; return; }
+  const k = amt / ing.per;
+  $('#foodKcal').value = Math.round(ing.kcal * k);
+  $('#foodP').value = Math.round(ing.p * k);
+  $('#foodC').value = Math.round(ing.c * k);
+  $('#foodF').value = Math.round(ing.f * k);
+  $('#amtHint').textContent = `→ ${Math.round(ing.kcal * k)} kcal · ${Math.round(ing.p * k)}P ${Math.round(ing.c * k)}C ${Math.round(ing.f * k)}F`;
+}
+$('#foodName').addEventListener('input', recalcFromIngredient);
+$('#foodAmt').addEventListener('input', recalcFromIngredient);
+
 $('#addForm').addEventListener('submit', e => {
   e.preventDefault();
   const kcal = parseInt($('#foodKcal').value, 10);
   if (!kcal || kcal < 1) return;
+  let name = $('#foodName').value.trim();
+  const ing = findIngredient(name);
+  const amt = parseFloat($('#foodAmt').value);
+  if (ing && amt > 0) name = `${ing.name} ${amt}${ing.unit}`;
   addEntry(
-    $('#foodName').value.trim(),
+    name,
     kcal,
     parseInt($('#foodP').value, 10) || 0,
     parseInt($('#foodC').value, 10) || 0,
     parseInt($('#foodF').value, 10) || 0
   );
-  for (const id of ['#foodName', '#foodKcal', '#foodP', '#foodC', '#foodF']) $(id).value = '';
+  for (const id of ['#foodName', '#foodKcal', '#foodP', '#foodC', '#foodF', '#foodAmt']) $(id).value = '';
+  $('#amtRow').style.display = 'none';
   document.activeElement?.blur();
 });
+
+// populate the autocomplete datalist
+$('#ingList').innerHTML = INGREDIENTS.map(i => `<option value="${esc(i.name)}">`).join('');
 
 document.body.addEventListener('click', e => {
   const chip = e.target.closest('.chip');
