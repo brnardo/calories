@@ -850,7 +850,15 @@ $('#ingList').innerHTML = INGREDIENTS.map(i => `<option value="${esc(i.name)}">`
 
 document.body.addEventListener('click', e => {
   const chip = e.target.closest('.chip');
-  if (chip) { addEntry(chip.dataset.name, +chip.dataset.kcal, +chip.dataset.p, +chip.dataset.c, +chip.dataset.f); return; }
+  if (chip) {
+    // fill the add form so amounts can be tweaked before logging
+    $('#foodName').value = chip.dataset.name;
+    $('#foodKcal').value = chip.dataset.kcal;
+    for (const [id, key] of [['#foodP', 'p'], ['#foodC', 'c'], ['#foodF', 'f']])
+      $(id).value = +chip.dataset[key] || '';
+    recalcFromIngredient();
+    return;
+  }
   const del = e.target.closest('[data-del]');
   if (del) { deleteEntry(del.dataset.del); return; }
   const day = e.target.closest('.day');
