@@ -99,11 +99,12 @@
   #addFab {
     width: 50px; height: 50px; flex-shrink: 0;
     border-radius: 50%; background: var(--accent); color: #14100b;
-    font-size: 32px; font-weight: 300; line-height: 1;
+    padding: 0;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer;
     box-shadow: 0 4px 16px rgba(0,0,0,.45);
   }
+  #addFab svg { display: block; width: 22px; height: 22px; }
   #addFab:active { background: var(--accent-dim); transform: scale(.96); }
   #addPresets {
     display: flex; flex-wrap: nowrap; gap: 8px;
@@ -445,7 +446,7 @@
 </div>
 
 <div id="addBar">
-  <button id="addFab" type="button" aria-label="Add food">+</button>
+  <button id="addFab" type="button" aria-label="Add food"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
   <div id="addPresets"></div>
 </div>
 <datalist id="ingList"></datalist>
