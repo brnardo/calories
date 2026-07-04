@@ -1388,7 +1388,7 @@ document.body.addEventListener('click', e => {
       return;
     }
   }
-  if (e.target.id === 'addFab') { openComposer(); return; }
+  if (e.target.closest('#addFab')) { openComposer(); return; }   // tap often lands on the inner svg
   if (e.target.id === 'newPresetChip') { openPresetBuilder(); return; }
   if (composer) {
     if (e.target.id === 'cpAddRow') { composer.items.push(['', '']); renderComposer(); return; }
