@@ -109,12 +109,19 @@
   }
   #addBtn:active { background: var(--accent-dim); }
 
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .chips {
+    display: flex; flex-wrap: nowrap; gap: 8px; margin-bottom: 18px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding-bottom: 2px;
+  }
+  .chips::-webkit-scrollbar { display: none; }
   .chip {
     background: var(--card); color: var(--text);
     padding: 9px 14px; border-radius: 20px; font-size: 14px;
     cursor: pointer; border: 1px solid transparent;
+    flex-shrink: 0; white-space: nowrap;
   }
+  .chip.addChip { color: var(--accent); border: 1px dashed #3a3a42; }
   .chip b { color: var(--accent); font-weight: 600; margin-left: 5px; }
   .chip:active { border-color: var(--accent); }
 
@@ -222,6 +229,7 @@
   }
   .sRow .sName { font-size: 15px; }
   .sRow input { background: var(--card2); padding: 8px 10px; font-size: 15px; text-align: right; }
+  .sRow input.pbIng { text-align: left; min-width: 0; }
   .sRow .sUnit { color: var(--muted); font-size: 13px; }
   .sRow .sMac { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .sTotal { margin-top: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -384,6 +392,8 @@
       Backs up automatically to a <b>private gist</b> after every change.
       Create a <a href="https://github.com/settings/tokens/new?scopes=gist&description=calories-app" target="_blank" rel="noopener">classic token with only the <b>gist</b> scope</a>
       and paste it below. (Fine-grained tokens don't support gists.)
+      Tip: once set up, save <b>…/calories/#token=&lt;token&gt;&amp;gist=&lt;gist id&gt;</b> in your
+      password manager — opening that link provisions any new install instantly.
     </p>
     <label for="tokenInput">GitHub token</label>
     <input id="tokenInput" type="password" placeholder="ghp_…" autocomplete="off">
@@ -443,6 +453,13 @@ const INGREDIENTS = [
   { name: 'Alpro oat drink no sugars',  per: 100, unit: 'ml', kcal: 40,  p: 0.2,  c: 5.8,  f: 1.5,  fb: 0.8 },
   { name: 'Bulk vegan rice protein',    per: 100, unit: 'g',  kcal: 374, p: 80.0, c: 3.8,  f: 3.5,  fb: 2.0 },
   { name: 'Black coffee',               per: 100, unit: 'ml', kcal: 2,   p: 0,    c: 0,    f: 0,    fb: 0 },
+  // one 30g scoop of Bulk vegan rice protein — same shake as in Breakfast
+  { name: 'Shake (rice protein)',       per: 1,   unit: 'scoop', kcal: 112, p: 24.0, c: 1.1, f: 1.1, fb: 0.6 },
+  // Portuguese staples (user's labels)
+  { name: 'Atum (lata, escorrido)',     per: 100, unit: 'g',  kcal: 102, p: 24.0, c: 0,    f: 0.7,  fb: 0 },
+  { name: 'Feijão frade (cozido)',      per: 100, unit: 'g',  kcal: 106, p: 7.0,  c: 15.3, f: 0.8,  fb: 4.8 },
+  { name: 'Massa (seca)',               per: 100, unit: 'g',  kcal: 349, p: 13.0, c: 65.0, f: 2.3,  fb: 8.1 },
+  { name: 'Burrata',                    per: 100, unit: 'g',  kcal: 236, p: 12.0, c: 2.2,  f: 20.0, fb: 0 },
   // staples
   { name: 'Almonds',                    per: 100, unit: 'g',  kcal: 579, p: 21.2, c: 21.6, f: 49.9, fb: 12.5 },
   { name: 'Rolled oats (dry)',          per: 100, unit: 'g',  kcal: 389, p: 16.9, c: 66.3, f: 6.9,  fb: 10.6 },
@@ -496,8 +513,9 @@ const INGREDIENTS = [
   { name: 'Bell pepper',                per: 100, unit: 'g',  kcal: 26,  p: 1.0,  c: 6.0,  f: 0.3,  fb: 2.1 }
 ];
 
-/* Preset meals: lists of [ingredient name, amount] resolved against INGREDIENTS. */
-const PRESETS = [
+/* Seed presets for fresh installs / migration. Live presets are in db.presets
+   (user-editable via the ＋ chip, included in gist backups). */
+const SEED_PRESETS = [
   {
     name: 'Breakfast',
     items: [
@@ -509,12 +527,29 @@ const PRESETS = [
       ['Alpro oat drink no sugars', 20], // in the coffee
       ['Black coffee', 200]
     ]
+  },
+  {
+    name: 'Atum com feijão frade',
+    items: [
+      ['Atum (lata, escorrido)', 120],
+      ['Feijão frade (cozido)', 250]
+    ]
+  },
+  {
+    name: 'Massa com burrata',
+    items: [
+      ['Massa (seca)', 100],
+      ['Burrata', 125]
+    ]
   }
 ];
 
 function findIngredient(name) {
   const n = String(name).trim().toLowerCase();
   return INGREDIENTS.find(i => i.name.toLowerCase() === n);
+}
+function fmtAmt(amt, unit) {
+  return amt + (unit.length > 2 ? ' ' + unit : unit);   // "25g" but "1 scoop"
 }
 function presetMacros(preset) {
   const t = { kcal: 0, p: 0, c: 0, f: 0, fb: 0 };
@@ -536,6 +571,7 @@ function defaults() {
   return {
     goal: 2000, goalP: 150, goalC: 205, goalF: 65, goalFb: 30,
     entries: [], gistToken: '', gistId: '', lastBackup: 0,
+    presets: SEED_PRESETS.map(p => ({ name: p.name, items: p.items.map(i => [...i]) })),
     profile: Object.assign({}, DEFAULT_PROFILE)
   };
 }
@@ -552,7 +588,9 @@ function load() {
         db.profile.days = { '1.2': 0, '1.375': 2, '1.55': 4, '1.725': 6, '1.9': 7 }[db.profile.act] ?? 4;
       delete db.profile.act;
     }
-    db.v = 3;
+    // v4 migration: presets move into db (user-editable)
+    if (!Array.isArray(stored.presets)) db.presets = defaults().presets;
+    db.v = 4;
     return db;
   } catch { return defaults(); }
 }
@@ -623,21 +661,8 @@ function dayTotals(dateStr) {
   );
 }
 function chipFoods() {
-  // preset meals first (real data), then most-frequent foods from history
-  const out = PRESETS.map(p => Object.assign({ name: p.name, preset: true }, presetMacros(p)));
-  const names = new Set(out.map(f => f.name.toLowerCase()));
-  const m = {};
-  for (const e of db.entries) {
-    const k = JSON.stringify([e.name, e.kcal, e.p || 0, e.c || 0, e.f || 0, e.fb || 0]);
-    m[k] = (m[k] || 0) + 1;
-  }
-  for (const [k] of Object.entries(m).sort((a, b) => b[1] - a[1])) {
-    if (out.length >= 10) break;
-    const [name, kcal, p, c, f, fb] = JSON.parse(k);
-    if (names.has(name.toLowerCase())) continue;
-    out.push({ name, kcal, p, c, f, fb });
-  }
-  return out;
+  // presets only — user-managed via the ＋ chip
+  return db.presets.map(p => Object.assign({ name: p.name, preset: true }, presetMacros(p)));
 }
 
 /* ---------- rendering ---------- */
@@ -689,7 +714,7 @@ function entryLi(e, bg) {
 function renderToday() {
   $('#chips').innerHTML = chipFoods().map(f =>
     `<span class="chip${f.preset ? ' preset' : ''}" data-name="${esc(f.name)}" data-kcal="${f.kcal}" data-p="${f.p || 0}" data-c="${f.c || 0}" data-f="${f.f || 0}" data-fb="${f.fb || 0}">${esc(f.name)}<b>${f.kcal}</b></span>`
-  ).join('');
+  ).join('') + '<span class="chip addChip" id="newPresetChip">＋ preset</span>';
   const items = db.entries.filter(e => e.date === todayStr()).sort((a, b) => b.ts - a.ts);
   $('#todayList').innerHTML = items.length
     ? items.map(e => entryLi(e)).join('')
@@ -784,6 +809,7 @@ function openEditor(id) {
 }
 function closeEditor() {
   editingId = null;
+  pb = null;
   $('#sheetWrap').classList.add('hidden');
 }
 function editingEntry() {
@@ -823,10 +849,96 @@ function renderEditor() {
   }
 }
 
+/* ---------- preset builder ---------- */
+
+let pb = null;   // { name, items: [[ingredient, amt], ...] } while the builder is open
+
+function openPresetBuilder() {
+  pb = { name: '', items: [['', '']] };
+  renderPresetBuilder();
+  $('#sheetWrap').classList.remove('hidden');
+}
+
+function pbTotals() {
+  const t = { kcal: 0, p: 0, c: 0, f: 0, fb: 0 };
+  for (const [n, amt] of pb.items) {
+    const ing = findIngredient(n);
+    if (!ing || !(amt > 0)) continue;
+    const k = amt / ing.per;
+    t.kcal += ing.kcal * k; t.p += ing.p * k; t.c += ing.c * k; t.f += ing.f * k; t.fb += (ing.fb || 0) * k;
+  }
+  return { kcal: Math.round(t.kcal), p: Math.round(t.p), c: Math.round(t.c), f: Math.round(t.f), fb: Math.round(t.fb) };
+}
+
+function renderPresetBuilder() {
+  const t = pbTotals();
+  $('#sheet').innerHTML = `
+    <h3>New preset</h3>
+    <div class="sSub">Pick ingredients from the database and set amounts.</div>
+    <label>Name</label>
+    <input class="fld" id="pbName" placeholder="e.g. Lunch" value="${esc(pb.name)}">
+    ${pb.items.map(([n, amt], i) => {
+      const ing = findIngredient(n);
+      return `<div class="sRow">
+        <input class="pbIng" data-idx="${i}" list="ingList" placeholder="Ingredient" value="${esc(n)}">
+        <input class="pbAmt" data-idx="${i}" type="number" inputmode="decimal" min="0" step="any" placeholder="amt" value="${amt}">
+        <button type="button" class="del pbDel" data-idx="${i}">✕</button>
+        <span class="sMac" data-pbmac="${i}">${ing ? (amt > 0 ? (m => `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb`)(scaleIng(ing, amt)) : `per ${ing.per}${ing.unit}: ${ing.kcal} kcal`) : ''}</span>
+      </div>`;
+    }).join('')}
+    <div class="btnRow"><button type="button" class="btn" id="pbAddRow">＋ ingredient</button></div>
+    <div class="sTotal" id="pbTotal">Total: ${t.kcal} kcal · ${t.p}P ${t.c}C ${t.f}F ${t.fb}Fb</div>
+    <div class="btnRow">
+      <button type="button" class="btn primary" id="pbSave">Save preset</button>
+      <button type="button" class="btn danger" id="pbDelete">Delete</button>
+    </div>`;
+}
+
+function savePreset() {
+  const name = (pb.name || '').trim();
+  const items = pb.items.filter(([n, amt]) => findIngredient(n) && amt > 0)
+    .map(([n, amt]) => [findIngredient(n).name, +amt]);
+  if (!name || !items.length) { alert('Give the preset a name and at least one valid ingredient + amount.'); return; }
+  const idx = db.presets.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+  if (idx >= 0) db.presets[idx] = { name, items };
+  else db.presets.push({ name, items });
+  pb = null;
+  $('#sheetWrap').classList.add('hidden');
+  save();
+}
+
+function deletePreset() {
+  const name = (pb.name || '').trim();
+  const idx = db.presets.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+  if (idx < 0) { alert('No preset with that name to delete.'); return; }
+  if (!confirm(`Delete preset "${db.presets[idx].name}"?`)) return;
+  db.presets.splice(idx, 1);
+  pb = null;
+  $('#sheetWrap').classList.add('hidden');
+  save();
+}
+
 $('#sheet').addEventListener('input', ev => {
+  const t = ev.target;
+  // preset builder inputs
+  if (pb) {
+    if (t.id === 'pbName') { pb.name = t.value; return; }
+    const i = +t.dataset.idx;
+    if (t.classList.contains('pbIng')) pb.items[i][0] = t.value;
+    else if (t.classList.contains('pbAmt')) pb.items[i][1] = parseFloat(t.value) || '';
+    else return;
+    const [n, amt] = pb.items[i];
+    const ing = findIngredient(n);
+    const mac = $(`[data-pbmac="${i}"]`);
+    if (mac) mac.textContent = ing
+      ? (amt > 0 ? (m => `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb`)(scaleIng(ing, amt)) : `per ${ing.per}${ing.unit}: ${ing.kcal} kcal`)
+      : '';
+    const tot = pbTotals();
+    $('#pbTotal').textContent = `Total: ${tot.kcal} kcal · ${tot.p}P ${tot.c}C ${tot.f}F ${tot.fb}Fb`;
+    return;
+  }
   const e = editingEntry();
   if (!e) return;
-  const t = ev.target;
   if (t.classList.contains('sAmt')) {
     const i = +t.dataset.idx;
     e.items[i][1] = parseFloat(t.value) || 0;
@@ -885,6 +997,7 @@ function ghHeaders() {
 function backupPayload() {
   return JSON.stringify({
     goal: db.goal, goalP: db.goalP, goalC: db.goalC, goalF: db.goalF, goalFb: db.goalFb,
+    presets: db.presets,
     profile: db.profile, entries: db.entries,
     exportedAt: new Date().toISOString()
   }, null, 2);
@@ -947,6 +1060,7 @@ async function restoreFromGist() {
     if (data.goalC >= 0) db.goalC = data.goalC;
     if (data.goalF >= 0) db.goalF = data.goalF;
     if (data.goalFb >= 0) db.goalFb = data.goalFb;
+    if (Array.isArray(data.presets)) db.presets = data.presets;
     if (data.profile) db.profile = Object.assign(defaults().profile, data.profile);
     persist();
     render();
@@ -1003,10 +1117,10 @@ $('#addForm').addEventListener('submit', e => {
   const amt = parseFloat($('#foodAmt').value);
   let items = null;
   if (ing && amt > 0) {
-    name = `${ing.name} ${amt}${ing.unit}`;
+    name = `${ing.name} ${fmtAmt(amt, ing.unit)}`;
     items = [[ing.name, amt]];
   } else {
-    const preset = PRESETS.find(p => p.name.toLowerCase() === name.toLowerCase());
+    const preset = db.presets.find(p => p.name.toLowerCase() === name.toLowerCase());
     if (preset) items = preset.items.map(i => [...i]);
   }
   addEntry(
@@ -1028,6 +1142,19 @@ $('#ingList').innerHTML = INGREDIENTS.map(i => `<option value="${esc(i.name)}">`
 
 document.body.addEventListener('click', e => {
   if (e.target.id === 'sheetBack' || e.target.id === 'sheetClose') { closeEditor(); return; }
+  if (e.target.id === 'newPresetChip') { openPresetBuilder(); return; }
+  if (pb) {
+    if (e.target.id === 'pbAddRow') { pb.items.push(['', '']); renderPresetBuilder(); return; }
+    if (e.target.id === 'pbSave') { savePreset(); return; }
+    if (e.target.id === 'pbDelete') { deletePreset(); return; }
+    const pbDel = e.target.closest('.pbDel');
+    if (pbDel) {
+      pb.items.splice(+pbDel.dataset.idx, 1);
+      if (!pb.items.length) pb.items.push(['', '']);
+      renderPresetBuilder();
+      return;
+    }
+  }
   const entry = e.target.closest('li.entry');
   if (entry && !e.target.closest('.del')) { openEditor(entry.dataset.id); return; }
   const chip = e.target.closest('.chip');
@@ -1092,6 +1219,21 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden' && backupTimer) backupNow();
   if (document.visibilityState === 'visible') render();
 });
+
+// One-time setup deep link: open the app as …/#token=ghp_xxx&gist=<id> to
+// provision a fresh install without typing. The hash is stripped immediately
+// and never leaves the device. Keep that link private (password manager).
+(function seedFromHash() {
+  if (!location.hash) return;
+  const h = new URLSearchParams(location.hash.slice(1));
+  let changed = false;
+  if (h.get('token')) { db.gistToken = h.get('token').trim(); changed = true; }
+  if (h.get('gist')) { db.gistId = h.get('gist').trim(); changed = true; }
+  if (changed) {
+    persist();
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+})();
 
 render();
 
