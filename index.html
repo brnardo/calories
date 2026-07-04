@@ -187,6 +187,19 @@
     font-variant-numeric: tabular-nums;
   }
   .seg button.active { background: var(--accent); color: #14100b; }
+  .infoBtn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 17px; height: 17px; padding: 0; margin-left: 4px;
+    border-radius: 50%; background: var(--card2); color: var(--muted);
+    font-size: 11px; font-style: italic; font-weight: 700;
+    border: 1px solid #3a3a42; cursor: pointer; vertical-align: text-bottom;
+  }
+  .tipBox {
+    background: var(--card2); border-radius: 10px; padding: 12px;
+    font-size: 13px; color: var(--muted); line-height: 1.5; margin: 4px 0 10px;
+  }
+  .tipBox b { color: var(--text); font-weight: 600; }
+  .tipBox.hidden { display: none; }
   .btnRow { display: flex; gap: 8px; margin-top: 14px; }
   .btn {
     flex: 1; padding: 13px; border-radius: 12px; font-weight: 600;
@@ -355,11 +368,21 @@
     <select id="pfAdj">
       <option value="-500">Lose ~0.5 kg/week (−500 kcal)</option>
       <option value="-250">Lose ~0.25 kg/week (−250 kcal)</option>
+      <option value="-165">Lose ~0.15 kg/week (−165 kcal)</option>
       <option value="0">Maintain weight</option>
+      <option value="165">Gain ~0.15 kg/week (+165 kcal)</option>
       <option value="250">Gain ~0.25 kg/week (+250 kcal)</option>
       <option value="500">Gain ~0.5 kg/week (+500 kcal)</option>
     </select>
-    <label for="pfProt">Protein target</label>
+    <label for="pfProt">Protein target <button type="button" class="infoBtn" id="protInfo">i</button></label>
+    <div class="tipBox hidden" id="protTip">
+      Target = <b>rate × body weight</b>. On <b>Auto</b> the rate follows your goal,
+      because dieting needs more protein to preserve muscle:
+      lose 0.5 kg/wk → <b>2.2 g/kg</b> · lose 0.25 → <b>2.0</b> · lose 0.15 → <b>1.8</b> ·
+      maintain → <b>1.6</b> · gain → <b>1.8</b>.
+      Based on ISSN guidance (1.4–2.0 g/kg for active people), Morton 2018
+      (muscle-building plateau ≈1.6 g/kg) and Helms et&nbsp;al. (higher needs in a deficit).
+    </div>
     <select id="pfProt">
       <option value="auto">Auto — recommended for your goal</option>
       <option value="1.6">1.6 g/kg — maintenance baseline</option>
@@ -402,6 +425,9 @@
     <div class="btnRow">
       <button class="btn primary" id="backupBtn">Back up now</button>
       <button class="btn danger" id="restoreBtn">Restore</button>
+    </div>
+    <div class="btnRow">
+      <button class="btn" id="copyLinkBtn">Copy setup link</button>
     </div>
     <div id="backupStatus"></div>
   </div>
@@ -459,7 +485,7 @@ const INGREDIENTS = [
   { name: 'Atum (lata, escorrido)',     per: 100, unit: 'g',  kcal: 102, p: 24.0, c: 0,    f: 0.7,  fb: 0 },
   { name: 'Feijão frade (cozido)',      per: 100, unit: 'g',  kcal: 106, p: 7.0,  c: 15.3, f: 0.8,  fb: 4.8 },
   { name: 'Massa (seca)',               per: 100, unit: 'g',  kcal: 349, p: 13.0, c: 65.0, f: 2.3,  fb: 8.1 },
-  { name: 'Burrata',                    per: 100, unit: 'g',  kcal: 236, p: 12.0, c: 2.2,  f: 20.0, fb: 0 },
+  { name: 'Burrata',                    per: 100, unit: 'g',  kcal: 290, p: 9.0,  c: 0.6,  f: 28.0, fb: 0 },
   // staples
   { name: 'Almonds',                    per: 100, unit: 'g',  kcal: 579, p: 21.2, c: 21.6, f: 49.9, fb: 12.5 },
   { name: 'Rolled oats (dry)',          per: 100, unit: 'g',  kcal: 389, p: 16.9, c: 66.3, f: 6.9,  fb: 10.6 },
@@ -479,7 +505,7 @@ const INGREDIENTS = [
   { name: 'Whole milk',                 per: 100, unit: 'ml', kcal: 61,  p: 3.2,  c: 4.8,  f: 3.3,  fb: 0 },
   { name: 'Semi-skimmed milk',          per: 100, unit: 'ml', kcal: 49,  p: 3.4,  c: 5.0,  f: 1.7,  fb: 0 },
   { name: 'Greek yogurt (full fat)',    per: 100, unit: 'g',  kcal: 100, p: 9.1,  c: 4.0,  f: 5.0,  fb: 0 },
-  { name: 'Skyr (plain)',               per: 100, unit: 'g',  kcal: 63,  p: 11.0, c: 4.0,  f: 0.2,  fb: 0 },
+  { name: 'Skyr (plain)',               per: 100, unit: 'g',  kcal: 49,  p: 7.0,  c: 4.1,  f: 0.4,  fb: 0.5 },
   { name: 'Lentils (cooked)',           per: 100, unit: 'g',  kcal: 116, p: 9.0,  c: 20.3, f: 0.4,  fb: 7.9 },
   { name: 'Chickpeas (cooked)',         per: 100, unit: 'g',  kcal: 164, p: 8.9,  c: 27.4, f: 2.6,  fb: 7.6 },
   { name: 'Firm tofu',                  per: 100, unit: 'g',  kcal: 144, p: 17.3, c: 2.8,  f: 8.7,  fb: 2.3 },
@@ -747,7 +773,7 @@ function proteinRate() {
   if (db.profile.prot !== 'auto') return +db.profile.prot;
   // evidence-based: higher protein in a deficit preserves lean mass
   // (ISSN 1.4–2.0 g/kg; Morton 2018 plateau ~1.6; Helms: more when cutting)
-  return { '-500': 2.2, '-250': 2.0, '0': 1.6, '250': 1.8, '500': 1.8 }[db.profile.adj] ?? 1.8;
+  return { '-500': 2.2, '-250': 2.0, '-165': 1.8, '0': 1.6, '165': 1.8, '250': 1.8, '500': 1.8 }[db.profile.adj] ?? 1.8;
 }
 
 function calcGoals() {
@@ -1042,9 +1068,9 @@ async function backupNow() {
   renderSyncDot();
 }
 
-async function restoreFromGist() {
+async function restoreFromGist(auto) {
   if (!db.gistToken || !db.gistId) { renderBackupStatus('Need a token and gist ID to restore.', true); return; }
-  if (!confirm('Replace all local data with the gist backup?')) return;
+  if (!auto && !confirm('Replace all local data with the gist backup?')) return;
   try {
     const r = await fetch('https://api.github.com/gists/' + db.gistId, { headers: ghHeaders() });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -1141,6 +1167,8 @@ $('#addForm').addEventListener('submit', e => {
 $('#ingList').innerHTML = INGREDIENTS.map(i => `<option value="${esc(i.name)}">`).join('');
 
 document.body.addEventListener('click', e => {
+  if (e.target.id === 'protInfo') { $('#protTip').classList.toggle('hidden'); return; }
+  $('#protTip').classList.add('hidden');   // any other tap dismisses the tooltip
   if (e.target.id === 'sheetBack' || e.target.id === 'sheetClose') { closeEditor(); return; }
   if (e.target.id === 'newPresetChip') { openPresetBuilder(); return; }
   if (pb) {
@@ -1211,7 +1239,19 @@ $('#gistIdInput').addEventListener('change', () => {
   persist(); render();
 });
 $('#backupBtn').addEventListener('click', backupNow);
-$('#restoreBtn').addEventListener('click', restoreFromGist);
+$('#restoreBtn').addEventListener('click', () => restoreFromGist(false));
+$('#copyLinkBtn').addEventListener('click', async () => {
+  if (!db.gistToken) { renderBackupStatus('Set a token first.', true); return; }
+  const url = location.origin + location.pathname
+    + '#token=' + encodeURIComponent(db.gistToken)
+    + (db.gistId ? '&gist=' + encodeURIComponent(db.gistId) : '');
+  try {
+    await navigator.clipboard.writeText(url);
+    renderBackupStatus('Setup link copied — store it somewhere private, it contains your token.');
+  } catch {
+    prompt('Copy this setup link:', url);
+  }
+});
 $('#exportBtn').addEventListener('click', exportJson);
 
 // flush pending backup when app is backgrounded; refresh date on return
@@ -1236,6 +1276,10 @@ document.addEventListener('visibilitychange', () => {
 })();
 
 render();
+
+// fresh install with credentials (e.g. via setup link): pull everything —
+// entries, presets, goals and profile — from the gist automatically
+if (db.gistToken && db.gistId && db.entries.length === 0) restoreFromGist(true);
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost'))
   navigator.serviceWorker.register('sw.js');
