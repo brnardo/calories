@@ -155,16 +155,15 @@
   li.entry .name .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   li.entry .name .em { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; }
   .mDot {
-    display: inline-block; width: 5px; height: 5px; border-radius: 50%;
-    vertical-align: middle; position: relative; top: -1px;
+    display: block; width: 8px; height: 8px; border-radius: 50%;
     font-style: normal; flex-shrink: 0;
   }
   .mDot-p { background: var(--protein); }
   .mDot-c { background: var(--carbs); }
   .mDot-f { background: var(--fat); }
   .mDot-b { background: var(--fiber); }
-  .mv { display: inline-flex; align-items: center; gap: 3px; color: var(--text); font-variant-numeric: tabular-nums; }
-  .mSep { color: var(--muted); margin: 0 1px; }
+  .mv { display: inline-flex; align-items: center; justify-content: center; gap: 4px; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+  .macroRow { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .sMac .mv, .sTotal .mv, .day .t .mv { color: inherit; }
   li.entry .kcal { font-weight: 600; font-variant-numeric: tabular-nums; }
   li.entry .del {
@@ -260,10 +259,14 @@
     gap: 12px; margin-bottom: 10px;
   }
   .sheetHead .sSub { margin-bottom: 0; }
-  .sheetDel {
-    color: var(--danger); font-size: 15px; font-weight: 600;
-    padding: 2px 4px; flex-shrink: 0; cursor: pointer;
+  .sheetX {
+    width: 34px; height: 34px; flex-shrink: 0; padding: 0;
+    border-radius: 50%; background: var(--card2); color: var(--text);
+    font-size: 20px; font-weight: 400; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
   }
+  .sheetX:active { background: #33333a; }
   .sRow {
     display: grid; grid-template-columns: 1fr 84px 28px;
     gap: 2px 8px; align-items: center;
@@ -699,10 +702,16 @@ function esc(s) {
 function macroDot(k) { return `<i class="mDot mDot-${k}"></i>`; }
 function macroVal(k, v) { return `<span class="mv">${macroDot(k)}${v || 0}</span>`; }
 function macroLine(p, c, f, fb) {
-  return [macroVal('p', p), macroVal('c', c), macroVal('f', f), macroVal('b', fb)].join('<span class="mSep"> · </span>');
+  return `<span class="macroRow">${[macroVal('p', p), macroVal('c', c), macroVal('f', f), macroVal('b', fb)].join('')}</span>`;
 }
 function macroKcalLine(kcal, p, c, f, fb) {
   return `${kcal} kcal · ${macroLine(p, c, f, fb)}`;
+}
+function sheetHeader(title, sub) {
+  return `<div class="sheetHead">
+    <div><h3>${title}</h3>${sub ? `<div class="sSub">${sub}</div>` : ''}</div>
+    <button type="button" class="sheetX" id="sheetClose" aria-label="Close">✕</button>
+  </div>`;
 }
 
 /* ---------- entries ---------- */
@@ -926,13 +935,7 @@ function renderEditor() {
   if (!e) return;
   if (e.items && e.items.length) {
     $('#sheet').innerHTML = `
-      <div class="sheetHead">
-        <div>
-          <h3>Edit meal</h3>
-          <div class="sSub">${fmtDay(e.date)} · ${fmtTime(e.ts)}</div>
-        </div>
-        <button type="button" class="sheetDel" id="edDelete">Delete</button>
-      </div>
+      ${sheetHeader('Edit meal', `${fmtDay(e.date)} · ${fmtTime(e.ts)}`)}
       <label>Name</label>
       <input class="fld" id="edName" value="${esc(e.name)}">
       ${e.items.map(([n, amt], i) => {
@@ -950,23 +953,23 @@ function renderEditor() {
       }).join('')}
       <div class="btnRow"><button type="button" class="btn" id="edAddRow">＋ ingredient</button></div>
       <div class="sTotal" id="sTotal">Total: ${macroKcalLine(e.kcal, e.p, e.c, e.f, e.fb)}</div>
-      <div class="btnRow"><button type="button" class="btn primary" id="sheetClose">Done</button></div>`;
+      <div class="btnRow">
+        <button type="button" class="btn danger" id="edDelete">Delete</button>
+        <button type="button" class="btn primary" id="sheetDone">Done</button>
+      </div>`;
   } else {
     $('#sheet').innerHTML = `
-      <div class="sheetHead">
-        <div>
-          <h3>Edit entry</h3>
-          <div class="sSub">${fmtDay(e.date)} · ${fmtTime(e.ts)}</div>
-        </div>
-        <button type="button" class="sheetDel" id="edDelete">Delete</button>
-      </div>
+      ${sheetHeader('Edit entry', `${fmtDay(e.date)} · ${fmtTime(e.ts)}`)}
       <label>Name</label><input class="fld" data-field="name" value="${esc(e.name)}">
       <label>kcal</label><input class="fld" data-field="kcal" type="number" inputmode="numeric" min="1" value="${e.kcal}">
       <label>Protein (g)</label><input class="fld" data-field="p" type="number" inputmode="numeric" min="0" value="${e.p || 0}">
       <label>Carbs (g)</label><input class="fld" data-field="c" type="number" inputmode="numeric" min="0" value="${e.c || 0}">
       <label>Fat (g)</label><input class="fld" data-field="f" type="number" inputmode="numeric" min="0" value="${e.f || 0}">
       <label>Fiber (g)</label><input class="fld" data-field="fb" type="number" inputmode="numeric" min="0" value="${e.fb || 0}">
-      <div class="btnRow"><button type="button" class="btn primary" id="sheetClose">Done</button></div>`;
+      <div class="btnRow">
+        <button type="button" class="btn danger" id="edDelete">Delete</button>
+        <button type="button" class="btn primary" id="sheetDone">Done</button>
+      </div>`;
   }
 }
 
@@ -992,8 +995,7 @@ function openComposer(presetName) {
 function renderComposer() {
   const t = totalsFromItems(composer.items);
   $('#sheet').innerHTML = `
-    <h3>${composer.name ? esc(composer.name) : 'Add food'}</h3>
-    <div class="sSub">Adjust amounts, then log.</div>
+    ${sheetHeader(composer.name ? esc(composer.name) : 'Add food', 'Adjust amounts, then tap Done')}
     <label>Name</label>
     <input class="fld" id="cpName" placeholder="Meal name" value="${esc(composer.name)}">
     ${composer.items.map(([n, amt], i) => {
@@ -1011,10 +1013,7 @@ function renderComposer() {
     }).join('')}
     <div class="btnRow"><button type="button" class="btn" id="cpAddRow">＋ ingredient</button></div>
     <div class="sTotal" id="cpTotal">Total: ${macroKcalLine(t.kcal, t.p, t.c, t.f, t.fb)}</div>
-    <div class="btnRow">
-      <button type="button" class="btn primary" id="cpLog">Log</button>
-      <button type="button" class="btn" id="sheetClose">Cancel</button>
-    </div>`;
+    <div class="btnRow"><button type="button" class="btn primary" id="cpLog">Done</button></div>`;
 }
 
 function logComposer() {
@@ -1341,7 +1340,7 @@ $('#ingList').innerHTML = INGREDIENTS.map(i => `<option value="${esc(i.name)}">`
 document.body.addEventListener('click', e => {
   if (e.target.id === 'protInfo') { $('#protTip').classList.toggle('hidden'); return; }
   $('#protTip').classList.add('hidden');   // any other tap dismisses the tooltip
-  if (e.target.id === 'sheetBack' || e.target.id === 'sheetClose') { closeEditor(); return; }
+  if (e.target.id === 'sheetBack' || e.target.id === 'sheetClose' || e.target.id === 'sheetDone') { closeEditor(); return; }
   const pick = e.target.closest('.ingSuggest li');
   if (pick) {
     const row = +pick.dataset.row;
