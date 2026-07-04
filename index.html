@@ -81,12 +81,38 @@
   #syncDot.pending::before { background: var(--accent); }
   #syncDot.error::before { background: var(--danger); }
 
-  main { padding: 4px 16px 110px; }
+  main { padding: 4px 16px 180px; }
   main.hidden { display: none; }
 
-  /* --- add form --- */
-  form#addForm { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-  .formRow { display: flex; gap: 8px; }
+  /* --- add controls (float above nav, not part of the tab bar) --- */
+  #addBar {
+    position: fixed; left: 0; right: 0; z-index: 11;
+    bottom: calc(58px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 16px 10px;
+    background: none;
+    border: none;
+    pointer-events: none;
+  }
+  #addBar.hidden { display: none; }
+  #addBar > * { pointer-events: auto; }
+  #addFab {
+    width: 50px; height: 50px; flex-shrink: 0;
+    border-radius: 50%; background: var(--accent); color: #14100b;
+    font-size: 32px; font-weight: 300; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,.45);
+  }
+  #addFab:active { background: var(--accent-dim); transform: scale(.96); }
+  #addPresets {
+    display: flex; flex-wrap: nowrap; gap: 8px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; flex: 1; min-width: 0;
+    padding: 4px 0;
+  }
+  #addPresets::-webkit-scrollbar { display: none; }
+  #addPresets .chip { box-shadow: 0 2px 10px rgba(0,0,0,.35); }
   input, button, select {
     font-family: inherit; font-size: 16px; color: var(--text);
     border: none; outline: none; border-radius: 12px;
@@ -99,34 +125,14 @@
     -webkit-appearance: none; appearance: none;
   }
   input::placeholder { color: var(--muted); }
-  #foodName { flex: 1.6; min-width: 0; }
-  #foodKcal { flex: 1; min-width: 0; }
-  .formRow.macroRow input { padding: 10px 12px; font-size: 14px; }
-  #amtRow { align-items: center; }
-  #foodAmt { flex: 1; padding: 10px 12px; font-size: 14px; }
-  #amtHint {
-    flex: 1.6; color: var(--muted); font-size: 13px;
-    font-variant-numeric: tabular-nums; padding: 0 4px;
-  }
-  .chip.preset { border: 1px solid #3a3a42; }
-  #addBtn {
-    background: var(--accent); color: #14100b; font-weight: 700;
-    padding: 14px 18px; flex-shrink: 0; cursor: pointer;
-  }
-  #addBtn:active { background: var(--accent-dim); }
 
-  .chips {
-    display: flex; flex-wrap: nowrap; gap: 8px; margin-bottom: 18px;
-    overflow-x: auto; -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; padding-bottom: 2px;
-  }
-  .chips::-webkit-scrollbar { display: none; }
   .chip {
     background: var(--card); color: var(--text);
     padding: 9px 14px; border-radius: 20px; font-size: 14px;
     cursor: pointer; border: 1px solid transparent;
     flex-shrink: 0; white-space: nowrap;
   }
+  .chip.preset { border: 1px solid #3a3a42; }
   .chip.addChip { color: var(--accent); border: 1px dashed #3a3a42; }
   .chip b { color: var(--accent); font-weight: 600; margin-left: 5px; }
   .chip:active { border-color: var(--accent); }
@@ -248,7 +254,7 @@
   }
   .sRow .sName { font-size: 15px; }
   .sRow input { background: var(--card2); padding: 8px 10px; font-size: 15px; text-align: right; }
-  .sRow input.pbIng { text-align: left; min-width: 0; }
+  .sRow input.pbIng, .sRow input.cpIng { text-align: left; min-width: 0; }
   .sRow .sUnit { color: var(--muted); font-size: 13px; }
   .sRow .sMac { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .sTotal { margin-top: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -306,25 +312,6 @@
 </header>
 
 <main id="viewToday">
-  <form id="addForm" autocomplete="off">
-    <div class="formRow">
-      <input id="foodName" placeholder="Food" autocapitalize="sentences" list="ingList">
-      <input id="foodKcal" placeholder="kcal" type="number" inputmode="numeric" min="1" required>
-      <button id="addBtn" type="submit">Add</button>
-    </div>
-    <datalist id="ingList"></datalist>
-    <div class="formRow" id="amtRow" style="display:none">
-      <input id="foodAmt" placeholder="Amount (g)" type="number" inputmode="decimal" min="0" step="any">
-      <span id="amtHint">per-100 auto</span>
-    </div>
-    <div class="formRow macroRow">
-      <input id="foodP" placeholder="Protein g" type="number" inputmode="numeric" min="0">
-      <input id="foodC" placeholder="Carbs g" type="number" inputmode="numeric" min="0">
-      <input id="foodF" placeholder="Fat g" type="number" inputmode="numeric" min="0">
-      <input id="foodFb" placeholder="Fiber g" type="number" inputmode="numeric" min="0">
-    </div>
-  </form>
-  <div class="chips" id="chips"></div>
   <div class="sectionTitle">Today</div>
   <ul id="todayList"></ul>
 </main>
@@ -457,6 +444,12 @@
   <div id="sheet"></div>
 </div>
 
+<div id="addBar">
+  <button id="addFab" type="button" aria-label="Add food">+</button>
+  <div id="addPresets"></div>
+</div>
+<datalist id="ingList"></datalist>
+
 <nav>
   <button data-view="today" class="active"><span class="ico">🍽</span>Today</button>
   <button data-view="history"><span class="ico">📅</span>History</button>
@@ -492,6 +485,8 @@ const INGREDIENTS = [
   { name: 'Feijão frade (cozido)',      per: 100, unit: 'g',  kcal: 106, p: 7.0,  c: 15.3, f: 0.8,  fb: 4.8 },
   { name: 'Massa (seca)',               per: 100, unit: 'g',  kcal: 349, p: 13.0, c: 65.0, f: 2.3,  fb: 8.1 },
   { name: 'Burrata',                    per: 100, unit: 'g',  kcal: 290, p: 9.0,  c: 0.6,  f: 28.0, fb: 0 },
+  { name: 'Pão chapata',                per: 100, unit: 'g',  kcal: 225, p: 7.0,  c: 48.0, f: 0.5,  fb: 3.1 },
+  { name: 'Requeijão de ovelha',        per: 100, unit: 'g',  kcal: 200, p: 8.7,  c: 2.6,  f: 17.2, fb: 0 },
   // staples
   { name: 'Almonds',                    per: 100, unit: 'g',  kcal: 579, p: 21.2, c: 21.6, f: 49.9, fb: 12.5 },
   { name: 'Rolled oats (dry)',          per: 100, unit: 'g',  kcal: 389, p: 16.9, c: 66.3, f: 6.9,  fb: 10.6 },
@@ -692,8 +687,17 @@ function dayTotals(dateStr) {
     { kcal: 0, p: 0, c: 0, f: 0, fb: 0 }
   );
 }
+function totalsFromItems(items) {
+  const t = { kcal: 0, p: 0, c: 0, f: 0, fb: 0 };
+  for (const [n, amt] of items) {
+    const ing = findIngredient(n);
+    if (!ing || !(amt > 0)) continue;
+    const k = amt / ing.per;
+    t.kcal += ing.kcal * k; t.p += ing.p * k; t.c += ing.c * k; t.f += ing.f * k; t.fb += (ing.fb || 0) * k;
+  }
+  return { kcal: Math.round(t.kcal), p: Math.round(t.p), c: Math.round(t.c), f: Math.round(t.f), fb: Math.round(t.fb) };
+}
 function chipFoods() {
-  // presets only — user-managed via the ＋ chip
   return db.presets.map(p => Object.assign({ name: p.name, preset: true }, presetMacros(p)));
 }
 
@@ -726,6 +730,7 @@ function render() {
   if (view === 'history') renderHistory();
   if (view === 'profile') renderProfile();
   if (view === 'settings') renderSettings();
+  renderAddBar();
   renderSyncDot();
 }
 
@@ -744,13 +749,19 @@ function entryLi(e, bg) {
 }
 
 function renderToday() {
-  $('#chips').innerHTML = chipFoods().map(f =>
-    `<span class="chip${f.preset ? ' preset' : ''}" data-name="${esc(f.name)}" data-kcal="${f.kcal}" data-p="${f.p || 0}" data-c="${f.c || 0}" data-f="${f.f || 0}" data-fb="${f.fb || 0}">${esc(f.name)}<b>${f.kcal}</b></span>`
-  ).join('') + '<span class="chip addChip" id="newPresetChip">＋ preset</span>';
   const items = db.entries.filter(e => e.date === todayStr()).sort((a, b) => b.ts - a.ts);
   $('#todayList').innerHTML = items.length
     ? items.map(e => entryLi(e)).join('')
     : '<div class="empty">Nothing logged yet today.</div>';
+}
+
+function renderAddBar() {
+  const show = view === 'today' || view === 'history';
+  $('#addBar').classList.toggle('hidden', !show);
+  if (!show) return;
+  $('#addPresets').innerHTML = chipFoods().map(f =>
+    `<span class="chip preset" data-preset="${esc(f.name)}">${esc(f.name)}<b>${f.kcal}</b></span>`
+  ).join('') + '<span class="chip addChip" id="newPresetChip">＋ preset</span>';
 }
 
 function renderHistory() {
@@ -836,12 +847,15 @@ let editingId = null;
 
 function openEditor(id) {
   editingId = id;
+  pb = null;
+  composer = null;
   renderEditor();
   $('#sheetWrap').classList.remove('hidden');
 }
 function closeEditor() {
   editingId = null;
   pb = null;
+  composer = null;
   $('#sheetWrap').classList.add('hidden');
 }
 function editingEntry() {
@@ -881,25 +895,78 @@ function renderEditor() {
   }
 }
 
+/* ---------- add composer (log new meal) ---------- */
+
+let composer = null;   // { name, items: [[ingredient, amt], ...] }
+
+function openComposer(presetName) {
+  editingId = null;
+  pb = null;
+  if (presetName) {
+    const p = db.presets.find(x => x.name.toLowerCase() === presetName.toLowerCase());
+    composer = p
+      ? { name: p.name, items: p.items.map(i => [...i]) }
+      : { name: presetName, items: [['', '']] };
+  } else {
+    composer = { name: '', items: [['', '']] };
+  }
+  renderComposer();
+  $('#sheetWrap').classList.remove('hidden');
+}
+
+function renderComposer() {
+  const t = totalsFromItems(composer.items);
+  $('#sheet').innerHTML = `
+    <h3>${composer.name ? esc(composer.name) : 'Add food'}</h3>
+    <div class="sSub">Adjust amounts, then log.</div>
+    <label>Name</label>
+    <input class="fld" id="cpName" placeholder="Meal name" value="${esc(composer.name)}">
+    ${composer.items.map(([n, amt], i) => {
+      const ing = findIngredient(n);
+      const m = ing && amt > 0 ? scaleIng(ing, amt) : null;
+      const nameCell = ing
+        ? `<span class="sName">${esc(ing.name)}</span>`
+        : `<input class="cpIng" data-idx="${i}" list="ingList" placeholder="Ingredient" value="${esc(n)}">`;
+      return `<div class="sRow">
+        ${nameCell}
+        <input class="sAmt" data-idx="${i}" type="number" inputmode="decimal" min="0" step="any" placeholder="${ing ? ing.unit : 'g'}" value="${amt || ''}">
+        <span class="sUnit">${ing ? ing.unit : 'g'}</span>
+        <span class="sMac" data-cpmac="${i}">${m ? `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb` : (ing ? `per ${ing.per}${ing.unit}: ${ing.kcal} kcal` : '')}</span>
+      </div>`;
+    }).join('')}
+    <div class="btnRow"><button type="button" class="btn" id="cpAddRow">＋ ingredient</button></div>
+    <div class="sTotal" id="cpTotal">Total: ${t.kcal} kcal · ${t.p}P ${t.c}C ${t.f}F ${t.fb}Fb</div>
+    <div class="btnRow">
+      <button type="button" class="btn primary" id="cpLog">Log</button>
+      <button type="button" class="btn" id="sheetClose">Cancel</button>
+    </div>`;
+}
+
+function logComposer() {
+  composer.name = ($('#cpName')?.value || composer.name || '').trim();
+  const items = composer.items
+    .filter(([n, amt]) => findIngredient(n) && amt > 0)
+    .map(([n, amt]) => [findIngredient(n).name, +amt]);
+  if (!items.length) { alert('Pick at least one ingredient with an amount.'); return; }
+  const t = totalsFromItems(items);
+  addEntry(composer.name || 'Food', t.kcal, t.p, t.c, t.f, t.fb, items);
+  closeEditor();
+}
+
 /* ---------- preset builder ---------- */
 
 let pb = null;   // { name, items: [[ingredient, amt], ...] } while the builder is open
 
 function openPresetBuilder() {
+  editingId = null;
+  composer = null;
   pb = { name: '', items: [['', '']] };
   renderPresetBuilder();
   $('#sheetWrap').classList.remove('hidden');
 }
 
 function pbTotals() {
-  const t = { kcal: 0, p: 0, c: 0, f: 0, fb: 0 };
-  for (const [n, amt] of pb.items) {
-    const ing = findIngredient(n);
-    if (!ing || !(amt > 0)) continue;
-    const k = amt / ing.per;
-    t.kcal += ing.kcal * k; t.p += ing.p * k; t.c += ing.c * k; t.f += ing.f * k; t.fb += (ing.fb || 0) * k;
-  }
-  return { kcal: Math.round(t.kcal), p: Math.round(t.p), c: Math.round(t.c), f: Math.round(t.f), fb: Math.round(t.fb) };
+  return totalsFromItems(pb.items);
 }
 
 function renderPresetBuilder() {
@@ -952,6 +1019,28 @@ function deletePreset() {
 
 $('#sheet').addEventListener('input', ev => {
   const t = ev.target;
+  // add composer inputs
+  if (composer) {
+    if (t.id === 'cpName') { composer.name = t.value; return; }
+    const i = +t.dataset.idx;
+    if (t.classList.contains('cpIng')) {
+      composer.items[i][0] = t.value;
+      if (findIngredient(t.value)) renderComposer();
+      return;
+    }
+    if (t.classList.contains('sAmt') && composer) {
+      composer.items[i][1] = parseFloat(t.value) || 0;
+      const [n, amt] = composer.items[i];
+      const ing = findIngredient(n);
+      const mac = $(`[data-cpmac="${i}"]`);
+      if (mac) mac.textContent = ing
+        ? (amt > 0 ? (m => `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb`)(scaleIng(ing, amt)) : `per ${ing.per}${ing.unit}: ${ing.kcal} kcal`)
+        : '';
+      const tot = totalsFromItems(composer.items);
+      $('#cpTotal').textContent = `Total: ${tot.kcal} kcal · ${tot.p}P ${tot.c}C ${tot.f}F ${tot.fb}Fb`;
+      return;
+    }
+  }
   // preset builder inputs
   if (pb) {
     if (t.id === 'pbName') { pb.name = t.value; return; }
@@ -1148,56 +1237,6 @@ async function exportJson() {
 
 /* ---------- events ---------- */
 
-// ingredient auto-calc: when the food name matches the database, entering an
-// amount fills kcal + macros scaled from per-100 values
-function recalcFromIngredient() {
-  const ing = findIngredient($('#foodName').value);
-  $('#amtRow').style.display = ing ? 'flex' : 'none';
-  if (!ing) return;
-  $('#foodAmt').placeholder = 'Amount (' + ing.unit + ')';
-  const amt = parseFloat($('#foodAmt').value);
-  if (!(amt > 0)) { $('#amtHint').textContent = `${ing.kcal} kcal / ${ing.per}${ing.unit}`; return; }
-  const k = amt / ing.per;
-  $('#foodKcal').value = Math.round(ing.kcal * k);
-  $('#foodP').value = Math.round(ing.p * k);
-  $('#foodC').value = Math.round(ing.c * k);
-  $('#foodF').value = Math.round(ing.f * k);
-  $('#foodFb').value = Math.round((ing.fb || 0) * k);
-  $('#amtHint').textContent = `→ ${Math.round(ing.kcal * k)} kcal · ${Math.round(ing.p * k)}P ${Math.round(ing.c * k)}C ${Math.round(ing.f * k)}F ${Math.round((ing.fb || 0) * k)}Fb`;
-}
-$('#foodName').addEventListener('input', recalcFromIngredient);
-$('#foodAmt').addEventListener('input', recalcFromIngredient);
-
-$('#addForm').addEventListener('submit', e => {
-  e.preventDefault();
-  const kcal = parseInt($('#foodKcal').value, 10);
-  if (!kcal || kcal < 1) return;
-  let name = $('#foodName').value.trim();
-  const ing = findIngredient(name);
-  const amt = parseFloat($('#foodAmt').value);
-  let items = null;
-  if (ing && amt > 0) {
-    name = `${ing.name} ${fmtAmt(amt, ing.unit)}`;
-    items = [[ing.name, amt]];
-  } else {
-    const preset = db.presets.find(p => p.name.toLowerCase() === name.toLowerCase());
-    if (preset) items = preset.items.map(i => [...i]);
-  }
-  addEntry(
-    name,
-    kcal,
-    parseInt($('#foodP').value, 10) || 0,
-    parseInt($('#foodC').value, 10) || 0,
-    parseInt($('#foodF').value, 10) || 0,
-    parseInt($('#foodFb').value, 10) || 0,
-    items
-  );
-  for (const id of ['#foodName', '#foodKcal', '#foodP', '#foodC', '#foodF', '#foodFb', '#foodAmt']) $(id).value = '';
-  $('#amtRow').style.display = 'none';
-  document.activeElement?.blur();
-  window.scrollTo(0, 0);     // iOS can leave the viewport panned after the keyboard closes
-});
-
 // populate the autocomplete datalist
 $('#ingList').innerHTML = INGREDIENTS.map(i => `<option value="${esc(i.name)}">`).join('');
 
@@ -1205,7 +1244,12 @@ document.body.addEventListener('click', e => {
   if (e.target.id === 'protInfo') { $('#protTip').classList.toggle('hidden'); return; }
   $('#protTip').classList.add('hidden');   // any other tap dismisses the tooltip
   if (e.target.id === 'sheetBack' || e.target.id === 'sheetClose') { closeEditor(); return; }
+  if (e.target.id === 'addFab') { openComposer(); return; }
   if (e.target.id === 'newPresetChip') { openPresetBuilder(); return; }
+  if (composer) {
+    if (e.target.id === 'cpAddRow') { composer.items.push(['', '']); renderComposer(); return; }
+    if (e.target.id === 'cpLog') { logComposer(); return; }
+  }
   if (pb) {
     if (e.target.id === 'pbAddRow') { pb.items.push(['', '']); renderPresetBuilder(); return; }
     if (e.target.id === 'pbSave') { savePreset(); return; }
@@ -1220,16 +1264,8 @@ document.body.addEventListener('click', e => {
   }
   const entry = e.target.closest('li.entry');
   if (entry && !e.target.closest('.del')) { openEditor(entry.dataset.id); return; }
-  const chip = e.target.closest('.chip');
-  if (chip) {
-    // fill the add form so amounts can be tweaked before logging
-    $('#foodName').value = chip.dataset.name;
-    $('#foodKcal').value = chip.dataset.kcal;
-    for (const [id, key] of [['#foodP', 'p'], ['#foodC', 'c'], ['#foodF', 'f'], ['#foodFb', 'fb']])
-      $(id).value = +chip.dataset[key] || '';
-    recalcFromIngredient();
-    return;
-  }
+  const presetChip = e.target.closest('[data-preset]');
+  if (presetChip) { openComposer(presetChip.dataset.preset); return; }
   const del = e.target.closest('[data-del]');
   if (del) { deleteEntry(del.dataset.del); return; }
   const day = e.target.closest('.day');
