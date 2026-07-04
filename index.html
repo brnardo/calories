@@ -1020,6 +1020,13 @@ function renderSyncDot() {
 
 let syncState = db.lastBackup ? 'ok' : 'idle';
 
+function ghError(status) {
+  if (status === 401) return new Error('GitHub rejected the token (401) — check it was copied fully, starts with "ghp_", and hasn\'t expired. (A gist ID in the token field also causes this.)');
+  if (status === 403) return new Error('Forbidden (403) — fine-grained tokens don\'t work for gists; use a classic token with the "gist" scope.');
+  if (status === 404) return new Error('Not found (404) — the token may be missing the "gist" scope, or the gist ID is wrong.');
+  return new Error('HTTP ' + status);
+}
+
 function ghHeaders() {
   return {
     'Authorization': 'Bearer ' + db.gistToken,
@@ -1056,13 +1063,13 @@ async function backupNow() {
         method: 'PATCH', headers: ghHeaders(), keepalive: true,
         body: JSON.stringify({ files: { [GIST_FILE]: { content } } })
       });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) throw ghError(r.status);
     } else {
       const r = await fetch('https://api.github.com/gists', {
         method: 'POST', headers: ghHeaders(),
         body: JSON.stringify({ description: 'Calorie tracker backup', public: false, files: { [GIST_FILE]: { content } } })
       });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) throw ghError(r.status);
       db.gistId = (await r.json()).id;
     }
     db.lastBackup = Date.now();
@@ -1079,7 +1086,7 @@ async function backupNow() {
 async function findBackupGist() {
   // locate an existing backup gist by filename so restore works without the id
   const r = await fetch('https://api.github.com/gists?per_page=100', { headers: ghHeaders() });
-  if (!r.ok) throw new Error('HTTP ' + r.status);
+  if (!r.ok) throw ghError(r.status);
   const g = (await r.json()).find(g => g.files && g.files[GIST_FILE]);
   return g ? g.id : null;
 }
@@ -1100,7 +1107,7 @@ async function restoreFromGist(auto) {
   if (!auto && !confirm('Replace all local data with the gist backup?')) return;
   try {
     const r = await fetch('https://api.github.com/gists/' + db.gistId, { headers: ghHeaders() });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) throw ghError(r.status);
     const g = await r.json();
     const f = g.files[GIST_FILE];
     if (!f) throw new Error('backup file not found in gist');
