@@ -86,7 +86,9 @@
   input, button, select {
     font-family: inherit; font-size: 16px; color: var(--text);
     border: none; outline: none; border-radius: 12px;
+    -webkit-appearance: none; appearance: none;   /* kill iOS default widget look */
   }
+  button { background: none; }
   input, select {
     background: var(--card); padding: 14px;
     width: 100%;
