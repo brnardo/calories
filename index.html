@@ -511,10 +511,10 @@ const INGREDIENTS = [
   // branded
   { name: 'Alpro soya-coconut yogurt',  per: 100, unit: 'g',  kcal: 55,  p: 3.9,  c: 2.3,  f: 3.0,  fb: 1.0 },
   { name: 'Alpro oat drink no sugars',  per: 100, unit: 'ml', kcal: 40,  p: 0.2,  c: 5.8,  f: 1.5,  fb: 0.8 },
-  { name: 'Bulk vegan rice protein',    per: 100, unit: 'g',  kcal: 374, p: 80.0, c: 3.8,  f: 3.5,  fb: 2.0 },
+  { name: 'Bulk vegan rice protein',    per: 100, unit: 'g',  kcal: 374, p: 80.0, c: 3.8,  f: 3.5,  fb: 3.8 },
   { name: 'Black coffee',               per: 100, unit: 'ml', kcal: 2,   p: 0,    c: 0,    f: 0,    fb: 0 },
-  // one 30g scoop of Bulk vegan rice protein — same shake as in Breakfast
-  { name: 'Shake (rice protein)',       per: 1,   unit: 'scoop', kcal: 112, p: 24.0, c: 1.1, f: 1.1, fb: 0.6 },
+  // one scoop: 30g protein (112 kcal · 24P · 1.1C · 1.1F · 1.1Fb per label) + half banana (60g)
+  { name: 'Shake (rice protein)',       per: 1,   unit: 'scoop', kcal: 165, p: 25,   c: 15,   f: 1,    fb: 3   },
   // Portuguese staples (user's labels)
   { name: 'Atum (lata, escorrido)',     per: 100, unit: 'g',  kcal: 102, p: 24.0, c: 0,    f: 0.7,  fb: 0 },
   { name: 'Feijão frade (cozido)',      per: 100, unit: 'g',  kcal: 106, p: 7.0,  c: 15.3, f: 0.8,  fb: 4.8 },
@@ -586,8 +586,7 @@ const SEED_PRESETS = [
       ['Alpro soya-coconut yogurt', 80],
       ['Almonds', 25],
       ['Rolled oats (dry)', 75],
-      ['Bulk vegan rice protein', 30],   // one 30g scoop
-      ['Banana', 60],                    // half a banana
+      ['Shake (rice protein)', 1],       // 30g protein + half banana
       ['Alpro oat drink no sugars', 20], // in the coffee
       ['Black coffee', 200]
     ]
