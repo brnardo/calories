@@ -907,7 +907,7 @@ function renderPresetBuilder() {
       const ing = findIngredient(n);
       return `<div class="sRow">
         <input class="pbIng" data-idx="${i}" list="ingList" placeholder="Ingredient" value="${esc(n)}">
-        <input class="pbAmt" data-idx="${i}" type="number" inputmode="decimal" min="0" step="any" placeholder="amt" value="${amt}">
+        <input class="pbAmt" data-idx="${i}" type="number" inputmode="decimal" min="0" step="any" placeholder="${ing ? ing.unit : 'g'}" value="${amt}">
         <button type="button" class="del pbDel" data-idx="${i}">✕</button>
         <span class="sMac" data-pbmac="${i}">${ing ? (amt > 0 ? (m => `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb`)(scaleIng(ing, amt)) : `per ${ing.per}${ing.unit}: ${ing.kcal} kcal`) : ''}</span>
       </div>`;
@@ -955,6 +955,8 @@ $('#sheet').addEventListener('input', ev => {
     else return;
     const [n, amt] = pb.items[i];
     const ing = findIngredient(n);
+    const amtEl = $(`.pbAmt[data-idx="${i}"]`);
+    if (amtEl) amtEl.placeholder = ing ? ing.unit : 'g';   // show the ingredient's unit
     const mac = $(`[data-pbmac="${i}"]`);
     if (mac) mac.textContent = ing
       ? (amt > 0 ? (m => `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb`)(scaleIng(ing, amt)) : `per ${ing.per}${ing.unit}: ${ing.kcal} kcal`)
