@@ -824,7 +824,7 @@ function entryLi(e, bg) {
 }
 
 function renderToday() {
-  const items = db.entries.filter(e => e.date === todayStr()).sort((a, b) => b.ts - a.ts);
+  const items = db.entries.filter(e => e.date === todayStr()).sort((a, b) => a.ts - b.ts);
   $('#todayList').innerHTML = items.length
     ? items.map(e => entryLi(e)).join('')
     : '<div class="empty">Nothing logged yet today.</div>';
@@ -848,7 +848,7 @@ function renderHistory() {
         const over = t.kcal > g.kcal;
         const pct = Math.min(100, t.kcal / g.kcal * 100);
         const entries = expandedDay === d
-          ? `<ul>${db.entries.filter(e => e.date === d).sort((a, b) => b.ts - a.ts).map(e => entryLi(e)).join('')}</ul>`
+          ? `<ul>${db.entries.filter(e => e.date === d).sort((a, b) => a.ts - b.ts).map(e => entryLi(e)).join('')}</ul>`
           : '';
         return `<div class="day${over ? ' over' : ''}" data-day="${d}">
           <div class="row"><span class="d">${fmtDay(d)}</span><span class="t"><b>${t.kcal}</b> / ${g.kcal} · ${macroLine(t.p, t.c, t.f, t.fb)}</span></div>
