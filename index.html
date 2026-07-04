@@ -68,8 +68,8 @@
   .macro .top b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
   .macro .mBar { height: 5px; border-radius: 3px; background: var(--card2); overflow: hidden; }
   .macro .mBar div { height: 100%; border-radius: 3px; width: 0%; transition: width .4s ease; }
+  .dateRow { display: flex; align-items: center; justify-content: space-between; }
   #syncDot {
-    position: absolute; top: calc(env(safe-area-inset-top) + 24px); right: 20px;
     font-size: 12px; color: var(--muted);
     display: flex; align-items: center; gap: 6px;
   }
@@ -319,7 +319,10 @@
 <body>
 
 <header>
-  <div id="dateLabel"></div>
+  <div class="dateRow">
+    <div id="dateLabel"></div>
+    <div id="syncDot"><span id="syncLabel"></span></div>
+  </div>
   <div class="totalRow">
     <span id="totalKcal">0</span>
     <span class="goalLabel">/ <span id="goalKcal">2000</span> kcal</span>
@@ -343,7 +346,6 @@
       <div class="mBar"><div id="mBb" style="background:var(--fiber)"></div></div>
     </div>
   </div>
-  <div id="syncDot"><span id="syncLabel"></span></div>
 </header>
 
 <main id="viewToday">
