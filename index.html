@@ -596,7 +596,7 @@ const SEED_PRESETS = [
   {
     name: 'Atum com feijão frade',
     items: [
-      ['Atum (lata, escorrido)', 120],
+      ['Atum (lata, escorrido)', 85],   // one 85g can (drained)
       ['Feijão frade (cozido)', 250]
     ]
   },
@@ -672,7 +672,13 @@ function load() {
     }
     // v4 migration: presets move into db (user-editable)
     if (!Array.isArray(stored.presets)) db.presets = defaults().presets;
-    db.v = 4;
+    // v5 migration: tuna preset is one 85g can (only if still at the old seed amount)
+    if ((stored.v || 1) < 5) {
+      for (const p of db.presets)
+        for (const it of p.items)
+          if (it[0] === 'Atum (lata, escorrido)' && it[1] === 120) it[1] = 85;
+    }
+    db.v = 5;
     return db;
   } catch { return defaults(); }
 }
