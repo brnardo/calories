@@ -153,12 +153,19 @@
   li.entry .time { color: var(--muted); font-size: 13px; width: 44px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
   li.entry .name { flex: 1; min-width: 0; overflow: hidden; }
   li.entry .name .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  li.entry .name .em { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  li.entry .name .em i { font-style: normal; }
-  li.entry .name .em .ip { color: var(--protein); }
-  li.entry .name .em .ic { color: var(--carbs); }
-  li.entry .name .em .if { color: var(--fat); }
-  li.entry .name .em .ib { color: var(--fiber); }
+  li.entry .name .em { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; }
+  .mDot {
+    display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+    vertical-align: middle; position: relative; top: -1px;
+    font-style: normal; flex-shrink: 0;
+  }
+  .mDot-p { background: var(--protein); }
+  .mDot-c { background: var(--carbs); }
+  .mDot-f { background: var(--fat); }
+  .mDot-b { background: var(--fiber); }
+  .mv { display: inline-flex; align-items: center; gap: 3px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .mSep { color: var(--muted); margin: 0 1px; }
+  .sMac .mv, .sTotal .mv, .day .t .mv { color: inherit; }
   li.entry .kcal { font-weight: 600; font-variant-numeric: tabular-nums; }
   li.entry .del {
     background: none; color: var(--muted); font-size: 18px;
@@ -248,6 +255,15 @@
   }
   #sheet h3 { font-size: 17px; margin-bottom: 4px; }
   #sheet .sSub { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .sheetHead {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 12px; margin-bottom: 10px;
+  }
+  .sheetHead .sSub { margin-bottom: 0; }
+  .sheetDel {
+    color: var(--danger); font-size: 15px; font-weight: 600;
+    padding: 2px 4px; flex-shrink: 0; cursor: pointer;
+  }
   .sRow {
     display: grid; grid-template-columns: 1fr 84px 28px;
     gap: 2px 8px; align-items: center;
@@ -503,6 +519,7 @@ const INGREDIENTS = [
   { name: 'Burrata',                    per: 100, unit: 'g',  kcal: 290, p: 9.0,  c: 0.6,  f: 28.0, fb: 0 },
   { name: 'Pão chapata',                per: 100, unit: 'g',  kcal: 225, p: 7.0,  c: 48.0, f: 0.5,  fb: 3.1 },
   { name: 'Requeijão de ovelha',        per: 100, unit: 'g',  kcal: 200, p: 8.7,  c: 2.6,  f: 17.2, fb: 0 },
+  { name: 'Queque de chocolate',        per: 100, unit: 'g',  kcal: 322, p: 7.3,  c: 45.7, f: 12.8, fb: 0 },
   // staples
   { name: 'Almonds',                    per: 100, unit: 'g',  kcal: 579, p: 21.2, c: 21.6, f: 49.9, fb: 12.5 },
   { name: 'Rolled oats (dry)',          per: 100, unit: 'g',  kcal: 389, p: 16.9, c: 66.3, f: 6.9,  fb: 10.6 },
@@ -517,7 +534,8 @@ const INGREDIENTS = [
   { name: 'Salmon (raw)',               per: 100, unit: 'g',  kcal: 208, p: 20.4, c: 0,    f: 13.6, fb: 0 },
   { name: 'Tuna in water (drained)',    per: 100, unit: 'g',  kcal: 116, p: 25.5, c: 0,    f: 0.6,  fb: 0 },
   { name: 'Beef mince 5% (raw)',        per: 100, unit: 'g',  kcal: 137, p: 20.1, c: 0,    f: 6.6,  fb: 0 },
-  { name: 'Olive oil',                  per: 100, unit: 'g',  kcal: 884, p: 0,    c: 0,    f: 100,  fb: 0 },
+  { name: 'Olive oil',                  per: 100, unit: 'g',  kcal: 822, p: 0,    c: 0,    f: 91,   fb: 0 },
+  { name: 'Azeite',                     per: 100, unit: 'g',  kcal: 822, p: 0,    c: 0,    f: 91,   fb: 0 },
   { name: 'Butter',                     per: 100, unit: 'g',  kcal: 717, p: 0.9,  c: 0.1,  f: 81.1, fb: 0 },
   { name: 'Whole milk',                 per: 100, unit: 'ml', kcal: 61,  p: 3.2,  c: 4.8,  f: 3.3,  fb: 0 },
   { name: 'Semi-skimmed milk',          per: 100, unit: 'ml', kcal: 49,  p: 3.4,  c: 5.0,  f: 1.7,  fb: 0 },
@@ -678,6 +696,14 @@ function fmtDay(dateStr) {
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+function macroDot(k) { return `<i class="mDot mDot-${k}"></i>`; }
+function macroVal(k, v) { return `<span class="mv">${macroDot(k)}${v || 0}</span>`; }
+function macroLine(p, c, f, fb) {
+  return [macroVal('p', p), macroVal('c', c), macroVal('f', f), macroVal('b', fb)].join('<span class="mSep"> · </span>');
+}
+function macroKcalLine(kcal, p, c, f, fb) {
+  return `${kcal} kcal · ${macroLine(p, c, f, fb)}`;
+}
 
 /* ---------- entries ---------- */
 
@@ -770,7 +796,7 @@ function render() {
 function entryLi(e, bg) {
   const hasMacros = (e.p || 0) + (e.c || 0) + (e.f || 0) + (e.fb || 0) > 0;
   const em = hasMacros
-    ? `<div class="em"><i class="ip">${e.p || 0}P</i> · <i class="ic">${e.c || 0}C</i> · <i class="if">${e.f || 0}F</i> · <i class="ib">${e.fb || 0}Fb</i></div>`
+    ? `<div class="em">${macroLine(e.p, e.c, e.f, e.fb)}</div>`
     : '';
   return `
     <li class="entry" data-id="${e.id}">
@@ -809,7 +835,7 @@ function renderHistory() {
           ? `<ul>${db.entries.filter(e => e.date === d).sort((a, b) => b.ts - a.ts).map(e => entryLi(e)).join('')}</ul>`
           : '';
         return `<div class="day${over ? ' over' : ''}" data-day="${d}">
-          <div class="row"><span class="d">${fmtDay(d)}</span><span class="t"><b>${t.kcal}</b> / ${g.kcal} · ${t.p}P ${t.c}C ${t.f}F</span></div>
+          <div class="row"><span class="d">${fmtDay(d)}</span><span class="t"><b>${t.kcal}</b> / ${g.kcal} · ${macroLine(t.p, t.c, t.f, t.fb)}</span></div>
           <div class="mini"><div style="width:${pct}%"></div></div>
           ${entries}
         </div>`;
@@ -900,8 +926,13 @@ function renderEditor() {
   if (!e) return;
   if (e.items && e.items.length) {
     $('#sheet').innerHTML = `
-      <h3>Edit meal</h3>
-      <div class="sSub">${fmtDay(e.date)} · ${fmtTime(e.ts)}</div>
+      <div class="sheetHead">
+        <div>
+          <h3>Edit meal</h3>
+          <div class="sSub">${fmtDay(e.date)} · ${fmtTime(e.ts)}</div>
+        </div>
+        <button type="button" class="sheetDel" id="edDelete">Delete</button>
+      </div>
       <label>Name</label>
       <input class="fld" id="edName" value="${esc(e.name)}">
       ${e.items.map(([n, amt], i) => {
@@ -914,29 +945,28 @@ function renderEditor() {
           ${nameCell}
           <input class="sAmt" data-idx="${i}" type="number" inputmode="decimal" min="0" step="any" placeholder="${ing ? ing.unit : 'g'}" value="${amt || ''}">
           <button type="button" class="del edDel" data-idx="${i}">✕</button>
-          <span class="sMac" data-mac="${i}">${m ? `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb` : (ing ? `per ${ing.per}${ing.unit}: ${ing.kcal} kcal` : 'not in ingredient database')}</span>
+          <span class="sMac" data-mac="${i}">${m ? macroKcalLine(m.kcal, m.p, m.c, m.f, m.fb) : (ing ? `per ${ing.per}${ing.unit}: ${ing.kcal} kcal` : 'not in ingredient database')}</span>
         </div></div>`;
       }).join('')}
       <div class="btnRow"><button type="button" class="btn" id="edAddRow">＋ ingredient</button></div>
-      <div class="sTotal" id="sTotal">Total: ${e.kcal} kcal · ${e.p}P ${e.c}C ${e.f}F ${e.fb || 0}Fb</div>
-      <div class="btnRow">
-        <button type="button" class="btn primary" id="sheetClose">Done</button>
-        <button type="button" class="btn danger" id="edDelete">Delete</button>
-      </div>`;
+      <div class="sTotal" id="sTotal">Total: ${macroKcalLine(e.kcal, e.p, e.c, e.f, e.fb)}</div>
+      <div class="btnRow"><button type="button" class="btn primary" id="sheetClose">Done</button></div>`;
   } else {
     $('#sheet').innerHTML = `
-      <h3>Edit entry</h3>
-      <div class="sSub">${fmtDay(e.date)} · ${fmtTime(e.ts)}</div>
+      <div class="sheetHead">
+        <div>
+          <h3>Edit entry</h3>
+          <div class="sSub">${fmtDay(e.date)} · ${fmtTime(e.ts)}</div>
+        </div>
+        <button type="button" class="sheetDel" id="edDelete">Delete</button>
+      </div>
       <label>Name</label><input class="fld" data-field="name" value="${esc(e.name)}">
       <label>kcal</label><input class="fld" data-field="kcal" type="number" inputmode="numeric" min="1" value="${e.kcal}">
       <label>Protein (g)</label><input class="fld" data-field="p" type="number" inputmode="numeric" min="0" value="${e.p || 0}">
       <label>Carbs (g)</label><input class="fld" data-field="c" type="number" inputmode="numeric" min="0" value="${e.c || 0}">
       <label>Fat (g)</label><input class="fld" data-field="f" type="number" inputmode="numeric" min="0" value="${e.f || 0}">
       <label>Fiber (g)</label><input class="fld" data-field="fb" type="number" inputmode="numeric" min="0" value="${e.fb || 0}">
-      <div class="btnRow">
-        <button type="button" class="btn primary" id="sheetClose">Done</button>
-        <button type="button" class="btn danger" id="edDelete">Delete</button>
-      </div>`;
+      <div class="btnRow"><button type="button" class="btn primary" id="sheetClose">Done</button></div>`;
   }
 }
 
@@ -976,11 +1006,11 @@ function renderComposer() {
         ${nameCell}
         <input class="sAmt" data-idx="${i}" type="number" inputmode="decimal" min="0" step="any" placeholder="${ing ? ing.unit : 'g'}" value="${amt || ''}">
         <span class="sUnit">${ing ? ing.unit : 'g'}</span>
-        <span class="sMac" data-cpmac="${i}">${m ? `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb` : (ing ? `per ${ing.per}${ing.unit}: ${ing.kcal} kcal` : '')}</span>
+        <span class="sMac" data-cpmac="${i}">${m ? macroKcalLine(m.kcal, m.p, m.c, m.f, m.fb) : (ing ? `per ${ing.per}${ing.unit}: ${ing.kcal} kcal` : '')}</span>
       </div></div>`;
     }).join('')}
     <div class="btnRow"><button type="button" class="btn" id="cpAddRow">＋ ingredient</button></div>
-    <div class="sTotal" id="cpTotal">Total: ${t.kcal} kcal · ${t.p}P ${t.c}C ${t.f}F ${t.fb}Fb</div>
+    <div class="sTotal" id="cpTotal">Total: ${macroKcalLine(t.kcal, t.p, t.c, t.f, t.fb)}</div>
     <div class="btnRow">
       <button type="button" class="btn primary" id="cpLog">Log</button>
       <button type="button" class="btn" id="sheetClose">Cancel</button>
@@ -1027,11 +1057,11 @@ function renderPresetBuilder() {
         <input class="pbIng" data-idx="${i}" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Ingredient" value="${esc(n)}">
         <input class="pbAmt" data-idx="${i}" type="number" inputmode="decimal" min="0" step="any" placeholder="${ing ? ing.unit : 'g'}" value="${amt}">
         <button type="button" class="del pbDel" data-idx="${i}">✕</button>
-        <span class="sMac" data-pbmac="${i}">${ing ? (amt > 0 ? (m => `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb`)(scaleIng(ing, amt)) : `per ${ing.per}${ing.unit}: ${ing.kcal} kcal`) : ''}</span>
+        <span class="sMac" data-pbmac="${i}">${ing ? (amt > 0 ? (m => macroKcalLine(m.kcal, m.p, m.c, m.f, m.fb))(scaleIng(ing, amt)) : `per ${ing.per}${ing.unit}: ${ing.kcal} kcal`) : ''}</span>
       </div></div>`;
     }).join('')}
     <div class="btnRow"><button type="button" class="btn" id="pbAddRow">＋ ingredient</button></div>
-    <div class="sTotal" id="pbTotal">Total: ${t.kcal} kcal · ${t.p}P ${t.c}C ${t.f}F ${t.fb}Fb</div>
+    <div class="sTotal" id="pbTotal">Total: ${macroKcalLine(t.kcal, t.p, t.c, t.f, t.fb)}</div>
     <div class="btnRow">
       <button type="button" class="btn primary" id="pbSave">Save preset</button>
       <button type="button" class="btn danger" id="pbDelete">Delete</button>
@@ -1085,11 +1115,14 @@ $('#sheet').addEventListener('input', ev => {
       const [n, amt] = composer.items[i];
       const ing = findIngredient(n);
       const mac = $(`[data-cpmac="${i}"]`);
-      if (mac) mac.textContent = ing
-        ? (amt > 0 ? (m => `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb`)(scaleIng(ing, amt)) : `per ${ing.per}${ing.unit}: ${ing.kcal} kcal`)
-        : '';
+      if (mac) {
+        if (ing && amt > 0) {
+          const m = scaleIng(ing, amt);
+          mac.innerHTML = macroKcalLine(m.kcal, m.p, m.c, m.f, m.fb);
+        } else mac.innerHTML = ing ? `per ${ing.per}${ing.unit}: ${ing.kcal} kcal` : '';
+      }
       const tot = totalsFromItems(composer.items);
-      $('#cpTotal').textContent = `Total: ${tot.kcal} kcal · ${tot.p}P ${tot.c}C ${tot.f}F ${tot.fb}Fb`;
+      $('#cpTotal').innerHTML = `Total: ${macroKcalLine(tot.kcal, tot.p, tot.c, tot.f, tot.fb)}`;
       return;
     }
   }
@@ -1107,11 +1140,14 @@ $('#sheet').addEventListener('input', ev => {
     const amtEl = $(`.pbAmt[data-idx="${i}"]`);
     if (amtEl) amtEl.placeholder = ing ? ing.unit : 'g';   // show the ingredient's unit
     const mac = $(`[data-pbmac="${i}"]`);
-    if (mac) mac.textContent = ing
-      ? (amt > 0 ? (m => `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb`)(scaleIng(ing, amt)) : `per ${ing.per}${ing.unit}: ${ing.kcal} kcal`)
-      : '';
+    if (mac) {
+      if (ing && amt > 0) {
+        const m = scaleIng(ing, amt);
+        mac.innerHTML = macroKcalLine(m.kcal, m.p, m.c, m.f, m.fb);
+      } else mac.innerHTML = ing ? `per ${ing.per}${ing.unit}: ${ing.kcal} kcal` : '';
+    }
     const tot = pbTotals();
-    $('#pbTotal').textContent = `Total: ${tot.kcal} kcal · ${tot.p}P ${tot.c}C ${tot.f}F ${tot.fb}Fb`;
+    $('#pbTotal').innerHTML = `Total: ${macroKcalLine(tot.kcal, tot.p, tot.c, tot.f, tot.fb)}`;
     return;
   }
   const e = editingEntry();
@@ -1131,9 +1167,9 @@ $('#sheet').addEventListener('input', ev => {
     const ing = findIngredient(e.items[i][0]);
     if (ing) {
       const m = scaleIng(ing, e.items[i][1]);
-      $(`[data-mac="${i}"]`).textContent = `${m.kcal} kcal · ${m.p}P ${m.c}C ${m.f}F ${m.fb}Fb`;
+      $(`[data-mac="${i}"]`).innerHTML = macroKcalLine(m.kcal, m.p, m.c, m.f, m.fb);
     }
-    $('#sTotal').textContent = `Total: ${e.kcal} kcal · ${e.p}P ${e.c}C ${e.f}F ${e.fb || 0}Fb`;
+    $('#sTotal').innerHTML = `Total: ${macroKcalLine(e.kcal, e.p, e.c, e.f, e.fb)}`;
     save();
   } else if (t.dataset.field) {
     const k = t.dataset.field;
