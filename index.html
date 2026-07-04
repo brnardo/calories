@@ -27,8 +27,12 @@
     --fiber: #c58bff;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; }
+  html { height: 100%; }
   body {
+    /* fill the real viewport on iOS standalone so the fixed nav pins to the
+       actual bottom on short pages (Today/History) too */
+    min-height: 100vh;
+    min-height: 100dvh;
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -1072,8 +1076,27 @@ async function backupNow() {
   renderSyncDot();
 }
 
+async function findBackupGist() {
+  // locate an existing backup gist by filename so restore works without the id
+  const r = await fetch('https://api.github.com/gists?per_page=100', { headers: ghHeaders() });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const g = (await r.json()).find(g => g.files && g.files[GIST_FILE]);
+  return g ? g.id : null;
+}
+
 async function restoreFromGist(auto) {
-  if (!db.gistToken || !db.gistId) { renderBackupStatus('Need a token and gist ID to restore.', true); return; }
+  if (!db.gistToken) { renderBackupStatus('Set a GitHub token first.', true); return; }
+  if (!db.gistId) {
+    renderBackupStatus('Looking for an existing backup gist…');
+    try {
+      const id = await findBackupGist();
+      if (id) { db.gistId = id; persist(); renderSettings(); }
+    } catch { /* fall through to the message below */ }
+    if (!db.gistId) {
+      renderBackupStatus('No backup gist found on this account — one is created automatically on your first backup (log something, or tap "Back up now").', true);
+      return;
+    }
+  }
   if (!auto && !confirm('Replace all local data with the gist backup?')) return;
   try {
     const r = await fetch('https://api.github.com/gists/' + db.gistId, { headers: ghHeaders() });
@@ -1165,6 +1188,7 @@ $('#addForm').addEventListener('submit', e => {
   for (const id of ['#foodName', '#foodKcal', '#foodP', '#foodC', '#foodF', '#foodFb', '#foodAmt']) $(id).value = '';
   $('#amtRow').style.display = 'none';
   document.activeElement?.blur();
+  window.scrollTo(0, 0);     // iOS can leave the viewport panned after the keyboard closes
 });
 
 // populate the autocomplete datalist
@@ -1207,7 +1231,11 @@ document.body.addEventListener('click', e => {
     render(); return;
   }
   const tab = e.target.closest('nav button');
-  if (tab) { view = tab.dataset.view; render(); }
+  if (tab) {
+    view = tab.dataset.view;
+    render();
+    window.scrollTo(0, 0);   // also re-anchors iOS's viewport after keyboard use
+  }
 });
 
 // fallback goals (settings)
@@ -1283,7 +1311,8 @@ render();
 
 // fresh install with credentials (e.g. via setup link): pull everything —
 // entries, presets, goals and profile — from the gist automatically
-if (db.gistToken && db.gistId && db.entries.length === 0) restoreFromGist(true);
+// (the gist id is discovered from the account if missing)
+if (db.gistToken && db.entries.length === 0) restoreFromGist(true);
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost'))
   navigator.serviceWorker.register('sw.js');
