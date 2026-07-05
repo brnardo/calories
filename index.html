@@ -496,6 +496,8 @@
   <div class="card">
     <h3>Install</h3>
     <p class="hint">In Safari: Share&nbsp;→ <b>Add to Home Screen</b>. The app then works fully offline.</p>
+    <p class="hint">Version <b id="appVersion"></b> · <span id="presetCount"></span> presets.
+       If the version looks old, fully close the app (swipe it away) and reopen twice.</p>
   </div>
 </main>
 
@@ -519,6 +521,7 @@
 
 <script>
 const KEY = 'calories-v1';
+const APP_VERSION = 'v43';   // keep in sync with sw.js CACHE
 const GIST_FILE = 'calories-backup.json';
 const $ = s => document.querySelector(s);
 
@@ -1415,6 +1418,8 @@ $('#sheet').addEventListener('input', ev => {
 function renderSettings() {
   for (const [id, val] of [['#goalInput', db.goal], ['#goalPInput', db.goalP], ['#goalCInput', db.goalC], ['#goalFInput', db.goalF], ['#goalFbInput', db.goalFb], ['#tokenInput', db.gistToken], ['#gistIdInput', db.gistId]])
     if (document.activeElement !== $(id)) $(id).value = val;
+  $('#appVersion').textContent = APP_VERSION;
+  $('#presetCount').textContent = db.presets.length;
   renderBackupStatus();
 }
 
