@@ -521,7 +521,7 @@
 
 <script>
 const KEY = 'calories-v1';
-const APP_VERSION = 'v43';   // keep in sync with sw.js CACHE
+const APP_VERSION = 'v44';   // keep in sync with sw.js CACHE
 const GIST_FILE = 'calories-backup.json';
 const $ = s => document.querySelector(s);
 
@@ -1721,7 +1721,11 @@ $('#exportBtn').addEventListener('click', exportJson);
 // flush pending backup when app is backgrounded; refresh date on return
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden' && backupTimer) backupNow();
-  if (document.visibilityState === 'visible') render();
+  if (document.visibilityState === 'visible') {
+    render();
+    // check for a new app version each time the app is reopened
+    navigator.serviceWorker?.getRegistration().then(r => r && r.update()).catch(() => {});
+  }
 });
 
 // One-time setup deep link: open the app as …/#token=ghp_xxx&gist=<id> to
@@ -1746,8 +1750,20 @@ render();
 // (the gist id is discovered from the account if missing)
 if (db.gistToken && db.entries.length === 0) restoreFromGist(true);
 
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost'))
-  navigator.serviceWorker.register('sw.js');
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  // updateViaCache:'none' forces the sw.js script itself to be revalidated over
+  // the network, so new versions are never masked by the HTTP cache (iOS bug).
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+    .then(reg => reg.update())
+    .catch(() => {});
+  // when a newly-installed SW takes control, reload once to run the new code
+  let swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swReloaded) return;
+    swReloaded = true;
+    location.reload();
+  });
+}
 </script>
 </body>
 </html>
