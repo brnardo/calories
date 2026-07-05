@@ -259,6 +259,7 @@
     gap: 12px; margin-bottom: 10px;
   }
   .sheetHead .sSub { margin-bottom: 0; }
+  .sheetActions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .sheetX {
     width: 34px; height: 34px; flex-shrink: 0; padding: 0;
     border-radius: 50%; background: var(--card2); color: var(--text);
@@ -773,10 +774,13 @@ function macroLine(p, c, f, fb) {
 function macroKcalLine(kcal, p, c, f, fb) {
   return `${kcal} kcal · ${macroLine(p, c, f, fb)}`;
 }
-function sheetHeader(title, sub) {
+function sheetHeader(title, sub, actions) {
   return `<div class="sheetHead">
     <div><h3>${title}</h3>${sub ? `<div class="sSub">${sub}</div>` : ''}</div>
-    <button type="button" class="sheetX" id="sheetClose" aria-label="Close">✕</button>
+    <div class="sheetActions">
+      ${actions || ''}
+      <button type="button" class="sheetX" id="sheetClose" aria-label="Close">✕</button>
+    </div>
   </div>`;
 }
 
@@ -1005,7 +1009,8 @@ function renderEditor() {
   if (!e) return;
   if (e.items && e.items.length) {
     $('#sheet').innerHTML = `
-      ${sheetHeader('Edit meal', `${fmtDay(e.date)} · ${fmtTime(e.ts)}`)}
+      ${sheetHeader('Edit meal', `${fmtDay(e.date)} · ${fmtTime(e.ts)}`,
+        `<button type="button" class="sheetX" id="edDuplicate" aria-label="Duplicate meal"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`)}
       <label>Name</label>
       <input class="fld" id="edName" value="${esc(e.name)}">
       ${e.items.map(([n, amt], i) => {
@@ -1046,6 +1051,17 @@ function renderEditor() {
 /* ---------- add composer (log new meal) ---------- */
 
 let composer = null;   // { name, items: [[ingredient, amt], ...] }
+
+function duplicateMeal() {
+  const e = editingEntry();
+  if (!e || !e.items || !e.items.length) return;
+  editingId = null;
+  pb = null;
+  browsingIngredients = false;
+  ingEditor = null;
+  composer = { name: e.name, items: e.items.map(i => [...i]) };
+  renderComposer();
+}
 
 function openComposer(presetName) {
   editingId = null;
@@ -1560,6 +1576,7 @@ document.body.addEventListener('click', e => {
     return;
   }
   if (editingEntry()) {
+    if (e.target.closest('#edDuplicate')) { duplicateMeal(); return; }
     if (e.target.id === 'edAddRow') {
       editingEntry().items.push(['', '']);
       renderEditor();
