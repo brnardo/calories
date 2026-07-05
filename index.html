@@ -283,7 +283,13 @@
     max-height: 60vh; overflow-y: auto; margin-top: 4px;
   }
   .ingRow {
-    padding: 10px 0; border-bottom: 1px solid var(--card2);
+    padding: 10px 0; border-bottom: 1px solid var(--card2); cursor: pointer;
+  }
+  .ingRow:active { opacity: .6; }
+  .ingTag {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); background: var(--card2); border-radius: 5px;
+    padding: 1px 5px; margin-left: 6px; vertical-align: middle;
   }
   .ingRow .ingName { font-size: 15px; }
   .ingRow .ingMac { font-size: 12px; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -598,7 +604,8 @@ const INGREDIENTS = [
   { name: 'Nectarina',                  per: 100, unit: 'g',  kcal: 44,  p: 1.06, c: 10.55, f: 0.32, fb: 1.7 },
   { name: 'Ameixa',                     per: 100, unit: 'g',  kcal: 41,  p: 0.8,  c: 7.4,  f: 0.2,  fb: 1.9 },
   // label: 249 kcal/100g; scaled to one 120g bifana (fiber not on label, estimated for the bread roll)
-  { name: 'Bifana',                     per: 1,   unit: 'un', kcal: 299, p: 15.2, c: 24.4, f: 15.6, fb: 1.2 }
+  { name: 'Bifana',                     per: 1,   unit: 'un', kcal: 299, p: 15.2, c: 24.4, f: 15.6, fb: 1.2 },
+  { name: 'Bolo de laranja',            per: 100, unit: 'g',  kcal: 267, p: 1.7,  c: 49.5, f: 7.5,  fb: 1.0 }
 ];
 
 /* Seed presets for fresh installs / migration. Live presets are in db.presets
@@ -631,14 +638,36 @@ const SEED_PRESETS = [
   }
 ];
 
+/* Effective ingredient list = built-in INGREDIENTS with user overrides/additions
+   from db.customIngredients layered on top (matched by name, case-insensitive). */
+let ALL_INGREDIENTS = INGREDIENTS.slice();
+function rebuildIngredients() {
+  const byName = new Map();
+  for (const i of INGREDIENTS) byName.set(i.name.toLowerCase(), Object.assign({}, i));
+  for (const c of (db.customIngredients || [])) byName.set(c.name.toLowerCase(), Object.assign({}, c));
+  ALL_INGREDIENTS = [...byName.values()];
+  refreshDatalist();
+}
+function refreshDatalist() {
+  const el = document.querySelector('#ingList');
+  if (el) el.innerHTML = ALL_INGREDIENTS.map(i => `<option value="${esc(i.name)}">`).join('');
+}
+function isBuiltinName(name) {
+  const n = String(name).trim().toLowerCase();
+  return INGREDIENTS.some(i => i.name.toLowerCase() === n);
+}
+function customIndex(name) {
+  const n = String(name).trim().toLowerCase();
+  return (db.customIngredients || []).findIndex(c => c.name.toLowerCase() === n);
+}
 function findIngredient(name) {
   const n = String(name).trim().toLowerCase();
-  return INGREDIENTS.find(i => i.name.toLowerCase() === n);
+  return ALL_INGREDIENTS.find(i => i.name.toLowerCase() === n);
 }
 function matchIngredients(q) {
   const s = String(q).trim().toLowerCase();
-  if (!s) return INGREDIENTS.slice(0, 10);
-  return INGREDIENTS.filter(i => i.name.toLowerCase().includes(s)).slice(0, 10);
+  if (!s) return ALL_INGREDIENTS.slice(0, 10);
+  return ALL_INGREDIENTS.filter(i => i.name.toLowerCase().includes(s)).slice(0, 10);
 }
 function updateIngSuggest(rowIdx, q) {
   const wrap = document.querySelector(`.sRowWrap[data-wrap="${rowIdx}"]`);
@@ -648,7 +677,7 @@ function updateIngSuggest(rowIdx, q) {
   if (!hits.length) { if (ul) ul.remove(); return; }
   if (!ul) { ul = document.createElement('ul'); ul.className = 'ingSuggest'; wrap.appendChild(ul); }
   ul.innerHTML = hits.map(ing => {
-    const n = INGREDIENTS.indexOf(ing);
+    const n = ALL_INGREDIENTS.indexOf(ing);
     return `<li data-ing="${n}" data-row="${rowIdx}">${esc(ing.name)}<span>${ing.kcal} / ${ing.per}${ing.unit}</span></li>`;
   }).join('');
 }
@@ -667,6 +696,7 @@ function presetMacros(preset) {
 }
 
 let db = load();
+rebuildIngredients();
 let view = 'today';
 let expandedDay = null;
 let backupTimer = null;
@@ -676,6 +706,7 @@ function defaults() {
     goal: 2000, goalP: 150, goalC: 205, goalF: 65, goalFb: 30,
     entries: [], gistToken: '', gistId: '', lastBackup: 0,
     presets: SEED_PRESETS.map(p => ({ name: p.name, items: p.items.map(i => [...i]) })),
+    customIngredients: [],
     profile: Object.assign({}, DEFAULT_PROFILE)
   };
 }
@@ -700,7 +731,9 @@ function load() {
         for (const it of p.items)
           if (it[0] === 'Atum (lata, escorrido)' && it[1] === 120) it[1] = 85;
     }
-    db.v = 5;
+    // v6: user-editable ingredient overrides
+    if (!Array.isArray(db.customIngredients)) db.customIngredients = [];
+    db.v = 6;
     return db;
   } catch { return defaults(); }
 }
@@ -915,7 +948,7 @@ function activeGoals() {
 }
 
 function renderProfile() {
-  $('#ingCount').textContent = INGREDIENTS.length;
+  $('#ingCount').textContent = ALL_INGREDIENTS.length;
   const p = db.profile;
   if (document.activeElement !== $('#pfAge')) $('#pfAge').value = p.age;
   if (document.activeElement !== $('#pfH')) $('#pfH').value = p.h;
@@ -956,6 +989,7 @@ function closeEditor() {
   pb = null;
   composer = null;
   browsingIngredients = false;
+  ingEditor = null;
   $('#sheetWrap').classList.add('hidden');
 }
 function editingEntry() {
@@ -1073,42 +1107,131 @@ function openPresetBuilder() {
   $('#sheetWrap').classList.remove('hidden');
 }
 
-/* ---------- ingredient browser ---------- */
+/* ---------- ingredient browser & editor ---------- */
 
 let browsingIngredients = false;
+let ingEditor = null;        // editing form state, or null when showing the list
+let ingBrowseFilter = '';
 
 function openIngredientBrowser() {
   editingId = null;
   composer = null;
   pb = null;
   browsingIngredients = true;
-  renderIngredientBrowser();
+  ingEditor = null;
+  ingBrowseFilter = '';
+  renderIngredientBrowser('');
   $('#sheetWrap').classList.remove('hidden');
 }
 
 function renderIngredientBrowser(filter) {
-  filter = filter ?? '';
+  filter = filter ?? ingBrowseFilter;
   $('#sheet').innerHTML = `
-    ${sheetHeader('Ingredients', `${INGREDIENTS.length} in the database`)}
+    ${sheetHeader('Ingredients', `${ALL_INGREDIENTS.length} in the database`)}
     <input class="fld" id="ingSearch" placeholder="Search…" value="${esc(filter)}" autocapitalize="off" autocomplete="off">
+    <div class="btnRow"><button type="button" class="btn" id="ingAddNew">＋ Add ingredient</button></div>
     <div id="ingBrowseList"></div>`;
   renderIngList(filter);
-  $('#ingSearch').focus();
-  $('#ingSearch').setSelectionRange(filter.length, filter.length);
 }
 
 function renderIngList(filter) {
   const q = filter.trim().toLowerCase();
-  const list = INGREDIENTS
+  const list = ALL_INGREDIENTS
     .filter(i => i.name.toLowerCase().includes(q))
     .sort((a, b) => a.name.localeCompare(b.name));
   $('#ingBrowseList').innerHTML = list.length
-    ? list.map(i => `
-      <div class="ingRow">
-        <div class="ingName">${esc(i.name)}</div>
-        <div class="ingMac">per ${i.per}${i.unit}: ${macroKcalLine(i.kcal, i.p, i.c, i.f, i.fb || 0)}</div>
-      </div>`).join('')
-    : '<div class="ingEmpty">No matches.</div>';
+    ? list.map(i => {
+        const builtin = isBuiltinName(i.name);
+        const tag = !builtin ? '<span class="ingTag">custom</span>'
+          : (customIndex(i.name) >= 0 ? '<span class="ingTag">edited</span>' : '');
+        return `<div class="ingRow" data-ing-name="${esc(i.name)}">
+          <div class="ingName">${esc(i.name)}${tag}</div>
+          <div class="ingMac">per ${i.per}${i.unit}: ${macroKcalLine(i.kcal, i.p, i.c, i.f, i.fb || 0)}</div>
+        </div>`;
+      }).join('')
+    : '<div class="ingEmpty">No matches. Tap ＋ to add it.</div>';
+}
+
+function openIngredientEditor(name) {
+  if (name) {
+    const ing = ALL_INGREDIENTS.find(i => i.name.toLowerCase() === name.toLowerCase());
+    if (!ing) return;
+    ingEditor = { name: ing.name, per: ing.per, unit: ing.unit, kcal: ing.kcal, p: ing.p, c: ing.c, f: ing.f, fb: ing.fb || 0, isNew: false };
+  } else {
+    ingEditor = { name: '', per: 100, unit: 'g', kcal: '', p: '', c: '', f: '', fb: '', isNew: true };
+  }
+  renderIngredientEditor();
+}
+
+function renderIngredientEditor() {
+  const e = ingEditor;
+  const builtin = isBuiltinName(e.name);
+  const hasOverride = customIndex(e.name) >= 0;
+  const num = (id, label, val, step) =>
+    `<div><label>${label}</label><input class="fld" id="${id}" type="number" inputmode="decimal" min="0" ${step ? `step="${step}"` : ''} value="${val}"></div>`;
+  $('#sheet').innerHTML = `
+    ${sheetHeader(e.isNew ? 'New ingredient' : esc(e.name), e.isNew ? 'Add a custom ingredient' : (builtin ? 'Editing a built-in' : 'Editing a custom ingredient'))}
+    <label>Name</label>
+    <input class="fld" id="ieName" value="${esc(e.name)}" ${e.isNew ? '' : 'disabled'} autocapitalize="sentences" autocomplete="off">
+    <div class="grid2">
+      ${num('iePer', 'Amount', e.per, 'any')}
+      <div><label>Unit</label><input class="fld" id="ieUnit" value="${esc(e.unit)}" autocapitalize="off" autocomplete="off"></div>
+      ${num('ieKcal', 'kcal', e.kcal, '1')}
+      ${num('ieP', 'Protein (g)', e.p, 'any')}
+      ${num('ieC', 'Carbs (g)', e.c, 'any')}
+      ${num('ieF', 'Fat (g)', e.f, 'any')}
+      ${num('ieFb', 'Fiber (g)', e.fb, 'any')}
+    </div>
+    <div class="btnRow">
+      <button type="button" class="btn primary" id="ieSave">Save</button>
+      <button type="button" class="btn" id="ieBack">Cancel</button>
+    </div>
+    ${builtin && hasOverride ? '<div class="btnRow"><button type="button" class="btn" id="ieReset">Reset to built-in default</button></div>' : ''}
+    ${!builtin && !e.isNew ? '<div class="btnRow"><button type="button" class="btn danger" id="ieDelete">Delete ingredient</button></div>' : ''}`;
+}
+
+function saveIngredientEditor() {
+  const e = ingEditor;
+  const name = (e.isNew ? $('#ieName').value : e.name).trim();
+  if (!name) { alert('Name is required.'); return; }
+  if (e.isNew && (isBuiltinName(name) || customIndex(name) >= 0)) { alert('An ingredient with that name already exists.'); return; }
+  const per = parseFloat($('#iePer').value) || 0;
+  if (!(per > 0)) { alert('Amount must be greater than 0.'); return; }
+  const obj = {
+    name, per,
+    unit: ($('#ieUnit').value.trim() || 'g'),
+    kcal: Math.round(parseFloat($('#ieKcal').value) || 0),
+    p: parseFloat($('#ieP').value) || 0,
+    c: parseFloat($('#ieC').value) || 0,
+    f: parseFloat($('#ieF').value) || 0,
+    fb: parseFloat($('#ieFb').value) || 0
+  };
+  const idx = customIndex(name);
+  if (idx >= 0) db.customIngredients[idx] = obj;
+  else db.customIngredients.push(obj);
+  rebuildIngredients();
+  ingEditor = null;
+  save();
+  renderIngredientBrowser(ingBrowseFilter);
+}
+
+function resetIngredient() {
+  const idx = customIndex(ingEditor.name);
+  if (idx >= 0) db.customIngredients.splice(idx, 1);
+  rebuildIngredients();
+  ingEditor = null;
+  save();
+  renderIngredientBrowser(ingBrowseFilter);
+}
+
+function deleteIngredient() {
+  if (!confirm(`Delete "${ingEditor.name}"? Presets or logged entries that use it will lose its macros.`)) return;
+  const idx = customIndex(ingEditor.name);
+  if (idx >= 0) db.customIngredients.splice(idx, 1);
+  rebuildIngredients();
+  ingEditor = null;
+  save();
+  renderIngredientBrowser(ingBrowseFilter);
 }
 
 function pbTotals() {
@@ -1171,7 +1294,7 @@ $('#sheet').addEventListener('focusin', ev => {
 
 $('#sheet').addEventListener('input', ev => {
   const t = ev.target;
-  if (browsingIngredients && t.id === 'ingSearch') { renderIngList(t.value); return; }
+  if (browsingIngredients && t.id === 'ingSearch') { ingBrowseFilter = t.value; renderIngList(t.value); return; }
   // add composer inputs
   if (composer) {
     if (t.id === 'cpName') { composer.name = t.value; return; }
@@ -1298,6 +1421,7 @@ function backupPayload() {
   return JSON.stringify({
     goal: db.goal, goalP: db.goalP, goalC: db.goalC, goalF: db.goalF, goalFb: db.goalFb,
     presets: db.presets,
+    customIngredients: db.customIngredients,
     profile: db.profile, entries: db.entries,
     exportedAt: new Date().toISOString()
   }, null, 2);
@@ -1380,7 +1504,9 @@ async function restoreFromGist(auto) {
     if (data.goalF >= 0) db.goalF = data.goalF;
     if (data.goalFb >= 0) db.goalFb = data.goalFb;
     if (Array.isArray(data.presets)) db.presets = data.presets;
+    if (Array.isArray(data.customIngredients)) db.customIngredients = data.customIngredients;
     if (data.profile) db.profile = Object.assign(defaults().profile, data.profile);
+    rebuildIngredients();
     persist();
     render();
     renderBackupStatus('Restored ' + data.entries.length + ' entries from backup.');
@@ -1408,7 +1534,7 @@ async function exportJson() {
 /* ---------- events ---------- */
 
 // populate the autocomplete datalist
-$('#ingList').innerHTML = INGREDIENTS.map(i => `<option value="${esc(i.name)}">`).join('');
+refreshDatalist();
 
 document.body.addEventListener('click', e => {
   if (e.target.id === 'protInfo') { $('#protTip').classList.toggle('hidden'); return; }
@@ -1417,7 +1543,7 @@ document.body.addEventListener('click', e => {
   const pick = e.target.closest('.ingSuggest li');
   if (pick) {
     const row = +pick.dataset.row;
-    const ing = INGREDIENTS[+pick.dataset.ing];
+    const ing = ALL_INGREDIENTS[+pick.dataset.ing];
     if (composer) { composer.items[row][0] = ing.name; renderComposer(); }
     else if (pb) { pb.items[row][0] = ing.name; renderPresetBuilder(); }
     else if (editingEntry()) {
@@ -1457,6 +1583,15 @@ document.body.addEventListener('click', e => {
   if (e.target.closest('#addFab')) { openComposer(); return; }   // tap often lands on the inner svg
   if (e.target.id === 'newPresetChip') { openPresetBuilder(); return; }
   if (e.target.id === 'ingBrowseBtn') { openIngredientBrowser(); return; }
+  if (browsingIngredients) {
+    if (e.target.id === 'ingAddNew') { openIngredientEditor(''); return; }
+    if (e.target.id === 'ieSave') { saveIngredientEditor(); return; }
+    if (e.target.id === 'ieBack') { ingEditor = null; renderIngredientBrowser(ingBrowseFilter); return; }
+    if (e.target.id === 'ieReset') { resetIngredient(); return; }
+    if (e.target.id === 'ieDelete') { deleteIngredient(); return; }
+    const ingRow = e.target.closest('.ingRow');
+    if (ingRow) { openIngredientEditor(ingRow.dataset.ingName); return; }
+  }
   if (composer) {
     if (e.target.id === 'cpAddRow') { composer.items.push(['', '']); renderComposer(); return; }
     if (e.target.id === 'cpLog') { logComposer(); return; }
