@@ -605,7 +605,9 @@ const INGREDIENTS = [
   { name: 'Ameixa',                     per: 100, unit: 'g',  kcal: 41,  p: 0.8,  c: 7.4,  f: 0.2,  fb: 1.9 },
   // label: 249 kcal/100g; scaled to one 120g bifana (fiber not on label, estimated for the bread roll)
   { name: 'Bifana',                     per: 1,   unit: 'un', kcal: 299, p: 15.2, c: 24.4, f: 15.6, fb: 1.2 },
-  { name: 'Bolo de laranja',            per: 100, unit: 'g',  kcal: 267, p: 1.7,  c: 49.5, f: 7.5,  fb: 1.0 }
+  { name: 'Bolo de laranja',            per: 100, unit: 'g',  kcal: 267, p: 1.7,  c: 49.5, f: 7.5,  fb: 1.0 },
+  // label gives kcal/fat/protein/fiber; carbs (~9.9g) back-calculated to fit 117 kcal
+  { name: 'Tremoços',                   per: 100, unit: 'g',  kcal: 117, p: 16.4, c: 9.9,  f: 2.4,  fb: 4.8 }
 ];
 
 /* Seed presets for fresh installs / migration. Live presets are in db.presets
