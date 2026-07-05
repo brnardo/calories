@@ -645,7 +645,7 @@ const SEED_PRESETS = [
   {
     name: 'Arroz de frango PD',
     items: [
-      ['Arroz de frango PD', 400]   // one PD ready-meal pack (edit amount to taste)
+      ['Arroz de frango PD', 270]   // one 270g PD ready-meal pack
     ]
   }
 ];
@@ -747,8 +747,15 @@ function load() {
     if (!Array.isArray(db.customIngredients)) db.customIngredients = [];
     // v7: seed the Arroz de frango PD preset for existing installs
     if ((stored.v || 1) < 7 && !db.presets.some(p => p.name === 'Arroz de frango PD'))
-      db.presets.push({ name: 'Arroz de frango PD', items: [['Arroz de frango PD', 400]] });
-    db.v = 7;
+      db.presets.push({ name: 'Arroz de frango PD', items: [['Arroz de frango PD', 270]] });
+    // v8: correct that preset's portion 400 -> 270 (pack weight) if untouched
+    if ((stored.v || 1) < 8) {
+      for (const p of db.presets)
+        if (p.name === 'Arroz de frango PD')
+          for (const it of p.items)
+            if (it[0] === 'Arroz de frango PD' && it[1] === 400) it[1] = 270;
+    }
+    db.v = 8;
     return db;
   } catch { return defaults(); }
 }
