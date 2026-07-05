@@ -1,5 +1,5 @@
 // Bump the version on every deploy so clients pick up new assets.
-const CACHE = 'calories-v40';
+const CACHE = 'calories-v41';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
