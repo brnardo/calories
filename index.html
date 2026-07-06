@@ -521,7 +521,7 @@
 
 <script>
 const KEY = 'calories-v1';
-const APP_VERSION = 'v44';   // keep in sync with sw.js CACHE
+const APP_VERSION = 'v45';   // keep in sync with sw.js CACHE
 const GIST_FILE = 'calories-backup.json';
 const $ = s => document.querySelector(s);
 
@@ -716,12 +716,32 @@ let view = 'today';
 let expandedDay = null;
 let backupTimer = null;
 
+/* Self-healing seed presets: any built-in preset the app defines is added if the
+   user has never had it (tracked in db.seedSeen, so deleting one keeps it gone).
+   Runs on load and after every gist restore, so a stale backup can't permanently
+   strip a preset. Returns true if it changed anything. */
+function ensureSeedPresets() {
+  if (!Array.isArray(db.seedSeen)) db.seedSeen = [];
+  const seen = new Set(db.seedSeen.map(s => s.toLowerCase()));
+  const have = new Set(db.presets.map(p => p.name.toLowerCase()));
+  let changed = false;
+  for (const sp of SEED_PRESETS) {
+    const key = sp.name.toLowerCase();
+    if (seen.has(key)) continue;
+    if (!have.has(key)) db.presets.push({ name: sp.name, items: sp.items.map(i => [...i]) });
+    db.seedSeen.push(sp.name);
+    changed = true;
+  }
+  return changed;
+}
+
 function defaults() {
   return {
     goal: 2000, goalP: 150, goalC: 205, goalF: 65, goalFb: 30,
     entries: [], gistToken: '', gistId: '', lastBackup: 0,
     presets: SEED_PRESETS.map(p => ({ name: p.name, items: p.items.map(i => [...i]) })),
     customIngredients: [],
+    seedSeen: [],
     profile: Object.assign({}, DEFAULT_PROFILE)
   };
 }
@@ -1463,6 +1483,7 @@ function backupPayload() {
   return JSON.stringify({
     goal: db.goal, goalP: db.goalP, goalC: db.goalC, goalF: db.goalF, goalFb: db.goalFb,
     presets: db.presets,
+    seedSeen: db.seedSeen,
     customIngredients: db.customIngredients,
     profile: db.profile, entries: db.entries,
     exportedAt: new Date().toISOString()
@@ -1547,7 +1568,9 @@ async function restoreFromGist(auto) {
     if (data.goalFb >= 0) db.goalFb = data.goalFb;
     if (Array.isArray(data.presets)) db.presets = data.presets;
     if (Array.isArray(data.customIngredients)) db.customIngredients = data.customIngredients;
+    if (Array.isArray(data.seedSeen)) db.seedSeen = data.seedSeen;
     if (data.profile) db.profile = Object.assign(defaults().profile, data.profile);
+    ensureSeedPresets();       // a stale backup must not strip built-in presets
     rebuildIngredients();
     persist();
     render();
@@ -1742,6 +1765,8 @@ document.addEventListener('visibilitychange', () => {
     history.replaceState(null, '', location.pathname + location.search);
   }
 })();
+
+if (ensureSeedPresets()) { persist(); scheduleBackup(); }
 
 render();
 
