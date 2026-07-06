@@ -260,6 +260,11 @@
   }
   .sheetHead .sSub { margin-bottom: 0; }
   .sheetActions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .whenRow { display: flex; gap: 8px; margin-bottom: 12px; }
+  .whenRow input {
+    flex: 1; min-width: 0; background: var(--card2);
+    padding: 10px 12px; font-size: 15px; color-scheme: dark;
+  }
   .sheetX {
     width: 34px; height: 34px; flex-shrink: 0; padding: 0;
     border-radius: 50%; background: var(--card2); color: var(--text);
@@ -521,7 +526,7 @@
 
 <script>
 const KEY = 'calories-v1';
-const APP_VERSION = 'v45';   // keep in sync with sw.js CACHE
+const APP_VERSION = 'v46';   // keep in sync with sw.js CACHE
 const GIST_FILE = 'calories-backup.json';
 const $ = s => document.querySelector(s);
 
@@ -1023,12 +1028,15 @@ function renderProfile() {
 /* ---------- entry editor ---------- */
 
 let editingId = null;
+let editingWhen = false;   // date/time row visible in the entry editor
 
 function openEditor(id) {
   editingId = id;
   pb = null;
   composer = null;
   browsingIngredients = false;
+  ingEditor = null;
+  editingWhen = false;
   renderEditor();
   $('#sheetWrap').classList.remove('hidden');
 }
@@ -1038,10 +1046,32 @@ function closeEditor() {
   composer = null;
   browsingIngredients = false;
   ingEditor = null;
+  editingWhen = false;
   $('#sheetWrap').classList.add('hidden');
 }
 function editingEntry() {
   return db.entries.find(x => x.id === editingId);
+}
+
+function whenRowHtml(e) {
+  if (!editingWhen) return '';
+  return `<div class="whenRow">
+    <input type="date" id="edDate" value="${e.date}">
+    <input type="time" id="edTime" value="${fmtTime(e.ts)}">
+  </div>`;
+}
+
+function applyWhen() {
+  const e = editingEntry();
+  const dv = $('#edDate')?.value, tv = $('#edTime')?.value;
+  if (!e || !dv || !tv) return;   // wait until both fields hold valid values
+  const [y, mo, d] = dv.split('-').map(Number);
+  const [hh, mm] = tv.split(':').map(Number);
+  e.date = dv;
+  e.ts = new Date(y, mo - 1, d, hh, mm).getTime();
+  save();   // re-renders lists; the entry may move to another day
+  const sub = document.querySelector('#sheet .sSub');
+  if (sub) sub.textContent = `${fmtDay(e.date)} · ${fmtTime(e.ts)}`;
 }
 
 function renderEditor() {
@@ -1050,7 +1080,9 @@ function renderEditor() {
   if (e.items && e.items.length) {
     $('#sheet').innerHTML = `
       ${sheetHeader('Edit meal', `${fmtDay(e.date)} · ${fmtTime(e.ts)}`,
-        `<button type="button" class="sheetX" id="edDuplicate" aria-label="Duplicate meal"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`)}
+        `<button type="button" class="sheetX" id="edWhen" aria-label="Edit date and time"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
+         <button type="button" class="sheetX" id="edDuplicate" aria-label="Duplicate meal"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`)}
+      ${whenRowHtml(e)}
       <label>Name</label>
       <input class="fld" id="edName" value="${esc(e.name)}">
       ${e.items.map(([n, amt], i) => {
@@ -1074,7 +1106,9 @@ function renderEditor() {
       </div>`;
   } else {
     $('#sheet').innerHTML = `
-      ${sheetHeader('Edit entry', `${fmtDay(e.date)} · ${fmtTime(e.ts)}`)}
+      ${sheetHeader('Edit entry', `${fmtDay(e.date)} · ${fmtTime(e.ts)}`,
+        `<button type="button" class="sheetX" id="edWhen" aria-label="Edit date and time"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>`)}
+      ${whenRowHtml(e)}
       <label>Name</label><input class="fld" data-field="name" value="${esc(e.name)}">
       <label>kcal</label><input class="fld" data-field="kcal" type="number" inputmode="numeric" min="1" value="${e.kcal}">
       <label>Protein (g)</label><input class="fld" data-field="p" type="number" inputmode="numeric" min="0" value="${e.p || 0}">
@@ -1355,6 +1389,7 @@ $('#sheet').addEventListener('focusin', ev => {
 $('#sheet').addEventListener('input', ev => {
   const t = ev.target;
   if (browsingIngredients && t.id === 'ingSearch') { ingBrowseFilter = t.value; renderIngList(t.value); return; }
+  if ((t.id === 'edDate' || t.id === 'edTime') && editingEntry()) { applyWhen(); return; }
   // add composer inputs
   if (composer) {
     if (t.id === 'cpName') { composer.name = t.value; return; }
@@ -1621,6 +1656,7 @@ document.body.addEventListener('click', e => {
     return;
   }
   if (editingEntry()) {
+    if (e.target.closest('#edWhen')) { editingWhen = !editingWhen; renderEditor(); return; }
     if (e.target.closest('#edDuplicate')) { duplicateMeal(); return; }
     if (e.target.id === 'edAddRow') {
       editingEntry().items.push(['', '']);
