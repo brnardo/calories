@@ -526,7 +526,7 @@
 
 <script>
 const KEY = 'calories-v1';
-const APP_VERSION = 'v46';   // keep in sync with sw.js CACHE
+const APP_VERSION = 'v47';   // keep in sync with sw.js CACHE
 const GIST_FILE = 'calories-backup.json';
 const $ = s => document.querySelector(s);
 
@@ -619,7 +619,11 @@ const INGREDIENTS = [
   { name: 'Tremoços',                   per: 100, unit: 'g',  kcal: 117, p: 16.4, c: 9.9,  f: 2.4,  fb: 4.8 },
   { name: 'Cachaço fumado',             per: 100, unit: 'g',  kcal: 265, p: 23.4, c: 0.5,  f: 19.1, fb: 0 },
   { name: 'Pão da avó',                 per: 100, unit: 'g',  kcal: 268, p: 9.1,  c: 53.4, f: 1.3,  fb: 3.2 },
-  { name: 'Arroz de frango PD',         per: 100, unit: 'g',  kcal: 257, p: 15.3, c: 20.7, f: 12.6, fb: 0.8 }
+  { name: 'Arroz de frango PD',         per: 100, unit: 'g',  kcal: 257, p: 15.3, c: 20.7, f: 12.6, fb: 0.8 },
+  { name: 'Pão de mistura PD',          per: 100, unit: 'g',  kcal: 262, p: 8.7,  c: 52.0, f: 1.2,  fb: 4.2 },
+  { name: 'Entremeada',                 per: 100, unit: 'g',  kcal: 305, p: 24.3, c: 0,    f: 23.1, fb: 0 },
+  // OFF was unreachable; USDA "potatoes, french fried, fast food" as a representative
+  { name: 'Fries',                      per: 100, unit: 'g',  kcal: 312, p: 3.4,  c: 41.0, f: 15.0, fb: 3.8 }
 ];
 
 /* Seed presets for fresh installs / migration. Live presets are in db.presets
