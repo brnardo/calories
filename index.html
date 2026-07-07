@@ -526,7 +526,7 @@
 
 <script>
 const KEY = 'calories-v1';
-const APP_VERSION = 'v47';   // keep in sync with sw.js CACHE
+const APP_VERSION = 'v48';   // keep in sync with sw.js CACHE
 const GIST_FILE = 'calories-backup.json';
 const $ = s => document.querySelector(s);
 
@@ -623,7 +623,8 @@ const INGREDIENTS = [
   { name: 'Pão de mistura PD',          per: 100, unit: 'g',  kcal: 262, p: 8.7,  c: 52.0, f: 1.2,  fb: 4.2 },
   { name: 'Entremeada',                 per: 100, unit: 'g',  kcal: 305, p: 24.3, c: 0,    f: 23.1, fb: 0 },
   // OFF was unreachable; USDA "potatoes, french fried, fast food" as a representative
-  { name: 'Fries',                      per: 100, unit: 'g',  kcal: 312, p: 3.4,  c: 41.0, f: 15.0, fb: 3.8 }
+  { name: 'Fries',                      per: 100, unit: 'g',  kcal: 312, p: 3.4,  c: 41.0, f: 15.0, fb: 3.8 },
+  { name: 'Manteiga',                   per: 100, unit: 'g',  kcal: 752, p: 0.8,  c: 0.6,  f: 83.0, fb: 0 }
 ];
 
 /* Seed presets for fresh installs / migration. Live presets are in db.presets
