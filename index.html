@@ -526,7 +526,7 @@
 
 <script>
 const KEY = 'calories-v1';
-const APP_VERSION = 'v48';   // keep in sync with sw.js CACHE
+const APP_VERSION = 'v49';   // keep in sync with sw.js CACHE
 const GIST_FILE = 'calories-backup.json';
 const $ = s => document.querySelector(s);
 
@@ -624,7 +624,9 @@ const INGREDIENTS = [
   { name: 'Entremeada',                 per: 100, unit: 'g',  kcal: 305, p: 24.3, c: 0,    f: 23.1, fb: 0 },
   // OFF was unreachable; USDA "potatoes, french fried, fast food" as a representative
   { name: 'Fries',                      per: 100, unit: 'g',  kcal: 312, p: 3.4,  c: 41.0, f: 15.0, fb: 3.8 },
-  { name: 'Manteiga',                   per: 100, unit: 'g',  kcal: 752, p: 0.8,  c: 0.6,  f: 83.0, fb: 0 }
+  { name: 'Manteiga',                   per: 100, unit: 'g',  kcal: 752, p: 0.8,  c: 0.6,  f: 83.0, fb: 0 },
+  { name: 'Arroz selvagem (seco)',      per: 100, unit: 'g',  kcal: 354, p: 10.1, c: 75.6, f: 0.9,  fb: 1.8 },
+  { name: 'Bife da vazia',              per: 100, unit: 'g',  kcal: 174, p: 21.0, c: 0.5,  f: 9.7,  fb: 0 }
 ];
 
 /* Seed presets for fresh installs / migration. Live presets are in db.presets
